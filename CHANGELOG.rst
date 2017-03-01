@@ -1,6 +1,17 @@
 Changelog
 =========
 
+0.5.7 (2017-03-01)
+------------------
+* [infra] update maintainer email
+
+0.5.5 (2017-03-01)
+------------------
+* [docs] many minor doc updates
+* [meta] bugfix so that imposter now ticks over composite children
+* [trees] method for getting the tip of the tree
+* [programs] py-trees-render program added
+
 0.5.4 (2017-02-22)
 ------------------
 * [infra] handle pypi/catkin conflicts with install_requires
