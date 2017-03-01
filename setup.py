@@ -9,6 +9,8 @@ install_requires = [] if os.environ.get('CATKIN_BINARY_DIR') else [
     "Sphinx",
     "sphinx-argparse",
     "sphinx_rtd_theme",
+    # tests
+    "nose",
     # runtime
     'enum34',
     'pydot'
@@ -46,6 +48,8 @@ d = setup(
     description="pythonic implementation of behaviour trees",
     long_description="A behaviour tree implementation for rapid development of small scale decision making engines that don't need to be real time reactive.",
     license='BSD',
+    test_suite='nose.collector',
+    test_require=['nose'],
     # test_suite='tests',
     # Unfortunately catkin builds do not like this
     #     entry_points={
@@ -69,5 +73,6 @@ d = setup(
              'scripts/py-trees-demo-selector',
              'scripts/py-trees-demo-sequence',
              'scripts/py-trees-demo-tree-stewardship',
+             'scripts/py-trees-render'
              ],
 )
