@@ -7,12 +7,11 @@
 ##############################################################################
 
 """
-Version number provided separately here so there is easy access for the module,
-setup.py and sphinx.
+This package contains py_trees program script code.
 """
 
 ##############################################################################
-# Version
+# Imports
 ##############################################################################
 
-__version__ = '0.5.7'
+from . import render
