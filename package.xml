@@ -3,12 +3,12 @@
   <!-- Make sure to update them both -->
   <!-- That is the price paid for a pypi and catkin package.  -->
   <name>py_trees</name>
-  <version>0.5.4</version>
+  <version>0.5.7</version>
   <description>
     Pythonic implementation of behaviour trees.
   </description>
 
-  <maintainer email="stonier@yujinrobot.com">Daniel Stonier</maintainer>
+  <maintainer email="d.stonier@gmail.com">Daniel Stonier</maintainer>
   <maintainer email="naveedhd@gmail.com">Naveed Usmani</maintainer>
 
   <license>BSD</license>

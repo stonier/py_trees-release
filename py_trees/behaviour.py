@@ -75,18 +75,18 @@ class Behaviour(object):
 
     def setup(self, timeout):
         """
+        Subclasses may override this method to do any one-time delayed construction that
+        is necessary for runtime. This is best done here rather than in the constructor
+        so that trees can be instantiated on the fly without any severe runtime requirements
+        (e.g. a hardware sensor) on any pc to produce visualisations such as dot graphs.
+
+        .. note:: User Customisable Callback
+
         Args:
             timeout (:obj:`float`): time to wait (0.0 is blocking forever)
 
         Returns:
             :obj:`bool`: whether it timed out trying to setup
-
-        .. note:: User Customisable Callback
-
-        Subclasses may override this method to do any one-time delayed construction that
-        is necessary for runtime. This is best done here rather than in the constructor
-        so that trees can be instantiated on the fly without any severe runtime requirements
-        (e.g. a hardware sensor) on any pc to produce visualisations such as dot graphs.
         """
         return True
 
@@ -102,9 +102,6 @@ class Behaviour(object):
 
     def terminate(self, new_status):
         """
-        Args:
-            new_status (:class:`~py_trees.common.Status`): the behaviour is transitioning to this new status
-
         .. note:: User Customisable Callback
 
         Subclasses may override this method to clean up. It will be triggered when a behaviour either
@@ -118,6 +115,9 @@ class Behaviour(object):
 
         * cancel an external action that got started
         * shut down any tempoarary communication handles
+
+        Args:
+            new_status (:class:`~py_trees.common.Status`): the behaviour is transitioning to this new status
 
         .. warning:: Do not set `self.status = new_status` here, that is automatically handled
            by the :meth:`~py_trees.behaviour.Behaviour.stop` method. Use the argument purely for introspection purposes (e.g.
