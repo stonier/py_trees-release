@@ -143,26 +143,12 @@ def create_imposter(cls):
         def __init__(self, *args, **kwargs):
             """
             Pass on the arguments intact except for the name. That is
-            prefixed with an underscore to denote that it is internal and
-            not linked in the usual fashion.
+            modified to begin with an underscore to denote that it is
+            internal.
             """
-            if 'name' in kwargs:
-                kwargs['name'] = str(kwargs['name'])
-                name = kwargs['name']
-                kwargs['name'] = "_" + kwargs['name']
-                new_args = args
-            else:
-                # if the list is empty, give it a placeholder name
-                if not args:
-                    new_args = ["Imposter"]
-                else:
-                    new_args = list(args)
-                    new_args[0] = str(new_args[0])
-                name = new_args[0]
-                new_args[0] = "_" + name
-                new_args = tuple(new_args)
-            super(Imposter, self).__init__(name)
-            self.original = cls(*new_args, **kwargs)
+            self.original = cls(*args, **kwargs)
+            super(Imposter, self).__init__(self.original.name)
+            self.original.name = "_" + self.original.name
 
             # aliases to original variables/methods
             self.blackbox_level = self.original.blackbox_level
@@ -418,8 +404,10 @@ def oneshot(cls):
 
            do_or_die = gimme_a_second_chance(GimmeASecondChance)("Do or Die")
     """
-    setattr(cls, "tick", _oneshot_tick(cls.tick))
-    return cls
+    class OneShot(cls):
+        pass
+    setattr(OneShot, "tick", _oneshot_tick(OneShot.tick))
+    return OneShot
 
 #############################
 # RunningIsFailure
