@@ -9,13 +9,13 @@
 
 """
 .. argparse::
-   :module: py_trees.demos.stewardship
+   :module: py_trees.demos.pick_up_where_you_left_off
    :func: command_line_argument_parser
-   :prog: py-trees-demo-tree-stewardship
+   :prog: py-trees-demo-pick-up-where-you-left-off
 
-.. graphviz:: dot/stewardship.dot
+.. graphviz:: dot/pick_up_where_you_left_off.dot
 
-.. image:: images/tree_stewardship.gif
+.. image:: images/pick_up_where_you_left_off.gif
 """
 
 ##############################################################################
@@ -36,17 +36,16 @@ import py_trees.console as console
 
 
 def description(root):
-    content = "A demonstration of tree stewardship.\n\n"
-    content += "A slightly less trivial tree that uses a simple stdout pre-tick handler\n"
-    content += "and both the debug and snapshot visitors for logging and displaying\n"
-    content += "the state of the tree.\n"
+    content = "A demonstration of the 'pick up where you left off' idiom.\n\n"
+    content += "A common behaviour tree pattern that allows you to resume\n"
+    content += "work after being interrupted by a high priority interrupt.\n"
     content += "\n"
     content += "EVENTS\n"
     content += "\n"
-    content += " -  3 : sequence switches from running to success\n"
-    content += " -  4 : selector's first child flicks to success once only\n"
-    content += " -  8 : the fallback idler kicks in as everything else fails\n"
-    content += " - 14 : the first child kicks in again, aborting a running sequence behind it\n"
+    content += " -  2 : task one done, task two running\n"
+    content += " -  3 : high priority interrupt\n"
+    content += " -  7 : task two restarts\n"
+    content += " -  9 : task two done\n"
     content += "\n"
     if py_trees.console.has_colours:
         banner_line = console.green + "*" * 79 + "\n" + console.reset
@@ -99,24 +98,32 @@ def post_tick_handler(snapshot_visitor, behaviour_tree):
     print("\n" + py_trees.display.ascii_tree(behaviour_tree.root,
                                              snapshot_information=snapshot_visitor))
 
-
 def create_tree():
-    every_n_success = py_trees.behaviours.SuccessEveryN("EveryN", 5)
-    sequence = py_trees.composites.Sequence(name="Sequence")
-    guard = py_trees.behaviours.Success("Guard")
-    periodic_success = py_trees.behaviours.Periodic("Periodic", 3)
-    finisher = py_trees.behaviours.Success("Finisher")
-    sequence.add_child(guard)
-    sequence.add_child(periodic_success)
-    sequence.add_child(finisher)
-    sequence.blackbox_level = py_trees.common.BlackBoxLevel.COMPONENT
-    idle = py_trees.behaviours.Success("Idle")
-    root = py_trees.composites.Selector(name="Demo Tree")
-    root.add_child(every_n_success)
-    root.add_child(sequence)
-    root.add_child(idle)
-    return root
+    task_one = py_trees.behaviours.Count(
+        name="Task 1",
+        fail_until=0,
+        running_until=2,
+        success_until=10
+    )
+    task_two = py_trees.behaviours.Count(
+        name="Task 2",
+        fail_until=0,
+        running_until=2,
+        success_until=10
+    )
+    high_priority_interrupt = py_trees.meta.running_is_failure(
+        py_trees.behaviours.Periodic)(
+        name="High Priority",
+        n=3
+    )
+    piwylo = py_trees.idioms.pick_up_where_you_left_off(
+        name="Pick Up\nWhere You\nLeft Off",
+        tasks=[task_one, task_two]
+    )
+    root = py_trees.composites.Selector(name="Root")
+    root.add_children([high_priority_interrupt, piwylo])
 
+    return root
 
 ##############################################################################
 # Main
@@ -154,7 +161,7 @@ def main():
     ####################
     if args.interactive:
         py_trees.console.read_single_keypress()
-    while True:
+    for i in range(1, 11):
         try:
             behaviour_tree.tick()
             if args.interactive:

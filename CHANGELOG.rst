@@ -1,16 +1,62 @@
+Release Notes
+=============
+
+0.8.x (2018-10-18)
+------------------
+
+**Breaking API**
+
+* Lower level namespace types no longer exist (PR117_), e.g. :code:`py_trees.Status` -> :code:`py_trees.common.Status`
+* Python2 support dropped
+
+**New Features**
+
+* [idioms] 'Pick Up Where You Left Off'
+* [idioms] 'OneShot'
+
 Changelog
 =========
 
-Forthcoming
------------
+0.8.0 (2018-10-18)
+------------------
+* [infra] shortcuts to types in __init__.py removed (PR117_)
+* [bugfix] python3 rosdeps
+* [idioms] pick_up_where_you_left_off added
+
+0.7.5 (2018-10-10)
+------------------
+* [idioms] oneshot added
+* [bugfix] properly set/reset parents when replacing/removing children in composites
+
+0.7.0 (2018-09-27)
+------------------
+* [announce] python3 only support from this point forward
+* [announce] now compatible for ros2 projects
+
+0.6.5 (2018-09-19)
+------------------
+* [bugfix] pick up missing feedback messages in inverters
+* [bugfix] eliminate costly/spammy blackboard variable check feedback message
+
+0.6.4 (2018-09-19)
+------------------
+* [bugfix] replace awkward newlines with spaces in ascii trees
+
+0.6.3 (2018-09-04)
+------------------
+* [bugfix] don't send the parellel's status to running children, invalidate them instead
+
+0.6.2 (2018-08-31)
+------------------
+* [bugfix] oneshot now reacts to priority interrupts correctly
 
 0.6.1 (2018-08-20)
 ------------------
-* Oneshot bugfix - no longer permanently modifies the original class
+* [bugfix] oneshot no longer permanently modifies the original class
 
 0.6.0 (2018-05-15)
 ------------------
-* Python 2/3 compatibility
+* [infra] python 2/3 compatibility
 
 0.5.10 (2017-06-17)
 -------------------
@@ -97,3 +143,5 @@ Forthcoming
 * ascii tree and tick views
 * use generators and visitors to more efficiently walk/introspect trees
 * a first implementation of behaviour trees in python
+
+.. _PR117: https://github.com/stonier/py_trees/pull/117

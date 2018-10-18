@@ -167,6 +167,7 @@ class Composite(Behaviour):
             child.stop(Status.INVALID)
         child_index = self.children.index(child)
         self.children.remove(child)
+        child.parent = None
         return child_index
 
     def remove_all_children(self):
@@ -176,6 +177,7 @@ class Composite(Behaviour):
         for child in self.children:
             if child.status == Status.RUNNING:
                 child.stop(Status.INVALID)
+            child.parent = None
         # makes sure to delete it for this class and all references to it
         #   http://stackoverflow.com/questions/850795/clearing-python-lists
         del self.children[:]
@@ -193,6 +195,8 @@ class Composite(Behaviour):
         child_index = self.children.index(child)
         self.logger.debug("%s.replace_child()[%s->%s]" % (self.__class__.__name__, child.name, replacement.name))
         self.children[child_index] = replacement
+        child.parent = None
+        replacement.parent = self
 
     def remove_child_by_id(self, child_id):
         """
@@ -209,6 +213,7 @@ class Composite(Behaviour):
             if child.status == Status.RUNNING:
                 child.stop(Status.INVALID)
             self.children.remove(child)
+            child.parent = None
         else:
             raise IndexError('child was not found with the specified id [%s]' % child_id)
 
@@ -474,7 +479,7 @@ class Sequence(Composite):
         """
         self.logger.debug("%s.tick()" % self.__class__.__name__)
         if self.status != Status.RUNNING:
-            self.logger.debug("%s.tick() [resetting]" % self.__class__.__name__)
+            self.logger.debug("%s.tick() [!RUNNING->resetting child index]" % self.__class__.__name__)
             # sequence specific handling
             self.current_index = 0
             for child in self.children:
@@ -538,7 +543,7 @@ class Parallel(Composite):
 
     .. graphviz:: dot/parallel.dot
 
-    Ticks every child every time the parallel is run (a poor man's form of paralellism).
+    Ticks every child every time the parallel is run (a poor man's form of parallelism).
 
     * Parallels will return :data:`~py_trees.common.Status.FAILURE` if any child returns :py:data:`~py_trees.common.Status.FAILURE`
     * Parallels with policy :data:`~py_trees.common.ParallelPolicy.SUCCESS_ON_ONE` return :py:data:`~py_trees.common.Status.SUCCESS` if **at least one** child returns :py:data:`~py_trees.common.Status.SUCCESS` and others are :py:data:`~py_trees.common.Status.RUNNING`.
@@ -589,7 +594,8 @@ class Parallel(Composite):
         if new_status != Status.RUNNING:
             for child in self.children:
                 if child.status == Status.RUNNING:
-                    child.stop(new_status)
+                    # interrupt it (exactly as if it was interrupted by a higher priority)
+                    child.stop(Status.INVALID)
             self.stop(new_status)
         self.status = new_status
         yield self

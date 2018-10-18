@@ -7,10 +7,6 @@
 # Imports
 ##############################################################################
 
-# enable some python3 compatibility options:
-# (unicode_literals not compatible with python2 uuid module)
-from __future__ import absolute_import, print_function
-
 import py_trees
 import py_trees.console as console
 
@@ -27,11 +23,13 @@ logger = py_trees.logging.Logger("Nosetest")
 ##############################################################################
 
 def create_impostered_composite():
-    return py_trees.meta.failure_is_running(py_trees.composites.Sequence)(name="Impostered Composite")
+    return py_trees.meta.failure_is_running(
+        py_trees.composites.Sequence)(name="Impostered Composite")
 
 
 def create_impostered_behaviour():
-    return py_trees.meta.success_is_failure(py_trees.behaviours.Success)(name="Impostered Behaviour")
+    return py_trees.meta.success_is_failure(
+        py_trees.behaviours.Success)(name="Impostered Behaviour")
 
 
 def has_child_with_name(parent, child_name):
@@ -43,9 +41,7 @@ def has_child_with_name(parent, child_name):
 ##############################################################################
 
 def test_imposter_has_add_child_method():
-    print(console.bold + "\n****************************************************************************************" + console.reset)
-    print(console.bold + "* Test Imposter has add_child_method" + console.reset)
-    print(console.bold + "****************************************************************************************\n" + console.reset)
+    console.banner("Test Imposter has add_child_method")
     tuples = []
     tuples.append((create_impostered_behaviour(), False))
     tuples.append((create_impostered_composite(), True))
@@ -55,9 +51,7 @@ def test_imposter_has_add_child_method():
 
 
 def test_parent_chain():
-    print(console.bold + "\n****************************************************************************************" + console.reset)
-    print(console.bold + "* Test Parent Chain" + console.reset)
-    print(console.bold + "****************************************************************************************\n" + console.reset)
+    console.banner("Test Parent Chain")
     root = py_trees.composites.Parallel("Root")
     sequence_failure_is_running = create_impostered_composite()
     success_is_failure = create_impostered_behaviour()
@@ -74,9 +68,7 @@ def test_parent_chain():
 
 
 def test_parent_chain_with_add_children():
-    print(console.bold + "\n****************************************************************************************" + console.reset)
-    print(console.bold + "* Test Parent Chain with add_children" + console.reset)
-    print(console.bold + "****************************************************************************************\n" + console.reset)
+    console.banner("Test Parent Chain with add_children")
     root = py_trees.composites.Parallel("Root")
     sequence_failure_is_running = create_impostered_composite()
     success_is_failure = create_impostered_behaviour()
@@ -93,9 +85,7 @@ def test_parent_chain_with_add_children():
 
 
 def test_child_chain():
-    print(console.bold + "\n****************************************************************************************" + console.reset)
-    print(console.bold + "* Test Child Chain" + console.reset)
-    print(console.bold + "****************************************************************************************\n" + console.reset)
+    console.banner("Test Child Chain")
     root = py_trees.composites.Parallel("Root")
     sequence_failure_is_running = create_impostered_composite()
     success_is_failure = create_impostered_behaviour()
@@ -107,5 +97,6 @@ def test_child_chain():
     tuples.append((root, sequence_failure_is_running.name))
     tuples.append((sequence_failure_is_running, success_is_failure.name))
     for parent, asserted_result in tuples:
-        print("%s's child: %s [%s]" % (parent.name, has_child_with_name(parent, asserted_result), asserted_result))
+        print("%s's child: %s [%s]" % (parent.name, has_child_with_name(
+            parent, asserted_result), asserted_result))
         assert(has_child_with_name(parent, asserted_result) == asserted_result)
