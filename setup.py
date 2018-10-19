@@ -12,7 +12,7 @@ install_requires = [ # ] if os.environ.get('AMENT_PREFIX_PATH') else [
     'pydot'
 ]
 
-tests_require=['nose', 'pytest', 'flake8', 'yanc', 'nose-htmloutput']
+tests_require=['nose', 'pydot', 'pytest', 'flake8', 'yanc', 'nose-htmloutput']
 
 extras_require = {} if os.environ.get('AMENT_PREFIX_PATH') else {
     'test': tests_require,
@@ -34,7 +34,7 @@ extras_require = {} if os.environ.get('AMENT_PREFIX_PATH') else {
 # That is the price paid for a pypi and catkin package.
 d = setup(
     name='py_trees',
-    version='0.8.1',  # also update package.xml and version.py
+    version='0.8.2',  # also update package.xml and version.py
     packages=find_packages(exclude=['tests*', 'docs*']),
     install_requires=install_requires,
     extras_require=extras_require,
