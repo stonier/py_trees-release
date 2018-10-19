@@ -1,3 +1,26 @@
+## py_trees (bouncy) - 0.8.2-0
+
+The packages in the `py_trees` repository were released into the `bouncy` distro by running `/usr/bin/bloom-release --track bouncy --rosdistro bouncy py_trees` on `Fri, 19 Oct 2018 23:43:47 -0000`
+
+The `py_trees` package was released.
+
+Version of package(s) in repository `py_trees`:
+
+- upstream repository: https://github.com/stonier/py_trees.git
+- release repository: https://github.com/stonier/py_trees-release.git
+- rosdistro version: `0.8.1-0`
+- old version: `0.8.1-0`
+- new version: `0.8.2-0`
+
+Versions of tools used:
+
+- bloom version: `0.6.6`
+- catkin_pkg version: `0.4.2`
+- rosdep version: `0.12.2`
+- rosdistro version: `0.6.2`
+- vcstools version: `0.1.40`
+
+
 ## py_trees (bouncy) - 0.8.1-0
 
 The packages in the `py_trees` repository were released into the `bouncy` distro by running `/usr/bin/bloom-release --track bouncy --rosdistro bouncy py_trees` on `Thu, 18 Oct 2018 13:40:18 -0000`
