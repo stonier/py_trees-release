@@ -92,7 +92,16 @@ class Blackboard(object):
 
     .. seealso:: The :ref:`py-trees-demo-blackboard-program` program demos use of the blackboard along with a couple of the blackboard behaviours.
     """
+    # Dunder style to avoid collisions
     __shared_state = {}
+
+    @staticmethod
+    def clear():
+        """
+        Erase the blackboard contents. Typically this is used only when you
+        have repeated runs of different tree instances, as often happens in testing.
+        """
+        Blackboard.__shared_state.clear()
 
     def __init__(self):
         self.__dict__ = self.__shared_state
@@ -131,6 +140,19 @@ class Blackboard(object):
             return getattr(self, name)
         except AttributeError:
             return None
+
+    def unset(self, name):
+        """
+        For when you need to unset a blackboard variable, this provides a convenient helper method.
+        This is particularly useful for unit testing behaviours.
+
+        Args:
+            name (:obj:`str`): name of the variable to unset
+        """
+        try:
+            delattr(self, name)
+        except AttributeError:
+            pass
 
     def __str__(self):
         """
@@ -181,10 +203,7 @@ class ClearBlackboardVariable(behaviours.Success):
         Delete the variable from the blackboard.
         """
         self.blackboard = Blackboard()
-        try:
-            delattr(self.blackboard, self.variable_name)
-        except AttributeError:
-            pass
+        self.blackboard.unset(self.variable_name)
 
 
 class SetBlackboardVariable(behaviours.Success):
@@ -227,23 +246,6 @@ class CheckBlackboardVariable(behaviours.Behaviour):
     It is a binary behaviour, always updating it's status
     with either :data:`~py_trees.common.Status.SUCCESS` or
     :data:`~py_trees.common.Status.FAILURE` at each tick.
-
-    Args:
-        name (:obj:`str`): name of the behaviour
-        variable_name (:obj:`str`): name of the variable to set
-        expected_value (:obj:`any`): expected value to find (if `None`, check for existence only)
-        comparison_operator (:obj:`func`): one from the python `operator module`_
-        clearing_policy (:obj:`any`): when to clear the match result, see :py:class:`~py_trees.common.ClearingPolicy`
-
-    .. tip::
-        If just checking for existence, use the default argument `expected_value=None`.
-
-    .. tip::
-        There are times when you want to get the expected match once and then save
-        that result thereafter. For example, to flag once a system has reached a
-        subgoal. Use the :data:`~py_trees.common.ClearingPolicy.NEVER` flag to do this.
-
-    .. include:: weblinks.rst
     """
     def __init__(self,
                  name,
@@ -253,6 +255,27 @@ class CheckBlackboardVariable(behaviours.Behaviour):
                  clearing_policy=common.ClearingPolicy.ON_INITIALISE,
                  debug_feedback_message=False
                  ):
+        """
+        Initialise the behaviour. It's worth noting that there are a few
+        combinations to the configuration that serve different use cases.
+
+        Args:
+            name (:obj:`str`): name of the behaviour
+            variable_name (:obj:`str`): name of the variable to set
+            expected_value (:obj:`any`): expected value to find (if `None`, check for existence only)
+            comparison_operator (:obj:`func`): one from the python `operator module`_
+            clearing_policy (:obj:`any`): when to clear the match result, see :py:class:`~py_trees.common.ClearingPolicy`
+            debug_feedback_message (:obj:`bool`): provide additional detail in behaviour feedback messages for debugging
+
+        .. tip::
+            If just checking for existence, use the default argument
+            on construction, `expected_value=None`.
+
+        .. tip::
+            There are times when you want to get the expected match once and then save
+            that result thereafter. For example, to flag once a system has reached a
+            subgoal. Use the :data:`~py_trees.common.ClearingPolicy.NEVER` flag to do this.
+        """
         super(CheckBlackboardVariable, self).__init__(name)
         self.blackboard = Blackboard()
         self.variable_name = variable_name

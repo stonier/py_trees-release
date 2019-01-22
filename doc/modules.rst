@@ -47,9 +47,16 @@ py_trees.common
     :members: ON_INITIALISE, ON_SUCCESS, NEVER
     :show-inheritance:
 
-.. autoclass:: py_trees.common.ParallelPolicy
-    :members: SUCCESS_ON_ALL, SUCCESS_ON_ONE
+.. autoclass:: py_trees.common.Duration
+    :members: INFINITE, UNTIL_THE_BATTLE_OF_ALFREDO
     :show-inheritance:
+
+.. autoclass:: py_trees.common.Name
+    :members: AUTO_GENERATED
+    :show-inheritance:
+
+.. autoclass:: py_trees.common.ParallelPolicy
+    :members: SuccessOnAll, SuccessOnOne, SuccessOnSelected
 
 .. autoclass:: py_trees.common.Status
     :members: SUCCESS, FAILURE, RUNNING, INVALID
@@ -79,6 +86,15 @@ py_trees.console
     :members:
     :synopsis: colour definitions and syntax highlighting for the console
 
+py_trees.decorators
+-------------------
+
+.. automodule:: py_trees.decorators
+    :members:
+    :special-members:
+    :show-inheritance:
+    :synopsis: hats for behaviours
+
 py_trees.display
 ----------------
 
@@ -105,7 +121,7 @@ py_trees.meta
     :members:
     :special-members:
     :show-inheritance:
-    :synopsis: factories and decorators for behaviours
+    :synopsis: factories for behaviours
 
 py_trees.timers
 ---------------

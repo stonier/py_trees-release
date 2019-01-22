@@ -1,6 +1,28 @@
 Release Notes
 =============
 
+Forthcoming
+-----------
+
+1.0.x (2019-01-18)
+------------------
+
+**Breaking API**
+
+* [behaviour] setup() no longer returns a boolean, catch exceptions instead, `#143 <https://github.com/stonier/py_trees/issues/143>`_.
+* [behaviour] setup() no longer takes timeouts, responsibility moved to BehaviourTree, `#148 <https://github.com/stonier/py_trees/issues/148>`_.
+* [decorators] new-style decorators found in py_trees.decorators
+* [decorators] new-style decorators stop their running child on completion (SUCCESS||FAILURE)
+* [decorators] old-style decorators in py_trees.meta deprecated
+
+**New Features**
+
+* [blackboard] added a method for clearing the entire blackboard (useful for tests)
+* [composites] raise TypeError when children's setup methods don't return a bool (common mistake)
+* [composites] new parallel policies, SuccessOnAll, SuccessOnSelected
+* [decorators] oneshot policies for activating on completion or *successful* completion only
+* [meta] behaviours from functions can now automagically generate names
+
 0.8.x (2018-10-18)
 ------------------
 

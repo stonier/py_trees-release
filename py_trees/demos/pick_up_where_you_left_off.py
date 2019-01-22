@@ -70,7 +70,7 @@ def epilog():
 
 
 def command_line_argument_parser():
-    parser = argparse.ArgumentParser(description=description(create_tree()),
+    parser = argparse.ArgumentParser(description=description(create_root()),
                                      epilog=epilog(),
                                      formatter_class=argparse.RawDescriptionHelpFormatter,
                                      )
@@ -98,7 +98,8 @@ def post_tick_handler(snapshot_visitor, behaviour_tree):
     print("\n" + py_trees.display.ascii_tree(behaviour_tree.root,
                                              snapshot_information=snapshot_visitor))
 
-def create_tree():
+
+def create_root():
     task_one = py_trees.behaviours.Count(
         name="Task 1",
         fail_until=0,
@@ -111,10 +112,11 @@ def create_tree():
         running_until=2,
         success_until=10
     )
-    high_priority_interrupt = py_trees.meta.running_is_failure(
-        py_trees.behaviours.Periodic)(
-        name="High Priority",
-        n=3
+    high_priority_interrupt = py_trees.decorators.RunningIsFailure(
+        child=py_trees.behaviours.Periodic(
+            name="High Priority",
+            n=3
+        )
     )
     piwylo = py_trees.idioms.pick_up_where_you_left_off(
         name="Pick Up\nWhere You\nLeft Off",
@@ -129,26 +131,27 @@ def create_tree():
 # Main
 ##############################################################################
 
+
 def main():
     """
     Entry point for the demo script.
     """
     args = command_line_argument_parser().parse_args()
     py_trees.logging.level = py_trees.logging.Level.DEBUG
-    tree = create_tree()
-    print(description(tree))
+    root = create_root()
+    print(description(root))
 
     ####################
     # Rendering
     ####################
     if args.render:
-        py_trees.display.render_dot_tree(tree)
+        py_trees.display.render_dot_tree(root)
         sys.exit()
 
     ####################
     # Tree Stewardship
     ####################
-    behaviour_tree = py_trees.trees.BehaviourTree(tree)
+    behaviour_tree = py_trees.trees.BehaviourTree(root)
     behaviour_tree.add_pre_tick_handler(pre_tick_handler)
     behaviour_tree.visitors.append(py_trees.visitors.DebugVisitor())
     snapshot_visitor = py_trees.visitors.SnapshotVisitor()
@@ -161,7 +164,7 @@ def main():
     ####################
     if args.interactive:
         py_trees.console.read_single_keypress()
-    for i in range(1, 11):
+    for unused_i in range(1, 11):
         try:
             behaviour_tree.tick()
             if args.interactive:

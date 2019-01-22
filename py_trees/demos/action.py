@@ -23,7 +23,6 @@
 import argparse
 import atexit
 import multiprocessing
-import py_trees
 import py_trees.common
 import time
 
@@ -113,7 +112,7 @@ class Action(py_trees.behaviour.Behaviour):
         super(Action, self).__init__(name)
         self.logger.debug("%s.__init__()" % (self.__class__.__name__))
 
-    def setup(self, unused_timeout=15):
+    def setup(self):
         """
         No delayed initialisation required for this example.
         """
@@ -122,7 +121,6 @@ class Action(py_trees.behaviour.Behaviour):
         self.planning = multiprocessing.Process(target=planning, args=(self.child_connection,))
         atexit.register(self.planning.terminate)
         self.planning.start()
-        return True
 
     def initialise(self):
         """

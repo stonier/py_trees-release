@@ -11,8 +11,7 @@ Skeleton
 --------
 
 Behaviours in py_trees are created by subclassing the
-:class:`~py_trees.behaviour.Behaviour` class. A skeleton
-with informative comments is shown below.
+:class:`~py_trees.behaviour.Behaviour` class. A skeleton example:
 
 .. literalinclude:: examples/skeleton_behaviour.py
    :language: python
@@ -144,11 +143,4 @@ concepts discussed above, but not present in the very simple lifecycle
     is what is generally referred to as a :term:`blocking` behaviour.
 
 .. image:: images/action.gif
-
-Meta Behaviours
----------------
-
-.. automodule:: py_trees.meta
-    :noindex:
-
 

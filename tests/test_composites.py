@@ -8,8 +8,12 @@
 # Imports
 ##############################################################################
 
+import nose.tools
+
 import py_trees
 import py_trees.console as console
+
+from nose.tools import assert_raises
 
 ##############################################################################
 # Logging Level
@@ -21,7 +25,6 @@ logger = py_trees.logging.Logger("Nosetest")
 ##############################################################################
 # Tests
 ##############################################################################
-
 
 def test_replacing_children():
     console.banner("Replacing Children")
@@ -35,6 +38,7 @@ def test_replacing_children():
     assert(old_child.parent is None)
     print("new_child.parent is parent")
     assert(new_child.parent is parent)
+
 
 def test_removing_children():
     console.banner("Removing Children")
@@ -53,3 +57,12 @@ def test_removing_children():
     parent.add_child(child)
     parent.remove_all_children()
     assert(child.parent is None)
+
+def test_composite_errors():
+    console.banner("Timer Errors")
+    root = py_trees.composites.Selector()
+    print("add_child raises a 'TypeError' due to not being an instance of Behaviour")
+    with nose.tools.assert_raises(TypeError) as context:
+        root.add_child(5.0)
+        print("TypeError has message with substring 'behaviours'")
+        assert("behaviours" in str(context.exception))

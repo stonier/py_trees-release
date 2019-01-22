@@ -4,19 +4,18 @@ from setuptools import find_packages, setup
 import os
 
 # You need install_requires if you don't have a ROS environment
-install_requires = [ # ] if os.environ.get('AMENT_PREFIX_PATH') else [
+install_requires = [  # ] if os.environ.get('AMENT_PREFIX_PATH') else [
     # build
     'setuptools',
     # runtime
-    'enum34;python_version<"3.4"',
     'pydot'
 ]
 
-tests_require=['nose', 'pydot', 'pytest', 'flake8', 'yanc', 'nose-htmloutput']
+tests_require = ['nose', 'pydot', 'pytest', 'flake8', 'yanc', 'nose-htmloutput']
 
 extras_require = {} if os.environ.get('AMENT_PREFIX_PATH') else {
     'test': tests_require,
-    'docs': ["Sphinx", "sphinx-argparse", "sphinx_rtd_theme"],
+    'docs': ["Sphinx", "sphinx-argparse", "sphinx_rtd_theme", "sphinx-autodoc-annotation"],
     'debs': ['stdeb', 'twine']
 }
 ##############################
@@ -34,7 +33,7 @@ extras_require = {} if os.environ.get('AMENT_PREFIX_PATH') else {
 # That is the price paid for a pypi and catkin package.
 d = setup(
     name='py_trees',
-    version='0.8.2',  # also update package.xml and version.py
+    version='1.0.0',  # also update package.xml and version.py
     packages=find_packages(exclude=['tests*', 'docs*']),
     install_requires=install_requires,
     extras_require=extras_require,
@@ -58,6 +57,7 @@ d = setup(
     tests_require=tests_require,
     entry_points={
          'console_scripts': [
+             'py-trees-render = py_trees.programs.render:main',
              'py-trees-demo-action-behaviour = py_trees.demos.action:main',
              'py-trees-demo-behaviour-lifecycle = py_trees.demos.lifecycle:main',
              'py-trees-demo-blackboard = py_trees.demos.blackboard:main',

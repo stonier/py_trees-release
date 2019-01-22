@@ -16,13 +16,11 @@ Common definitions, methods and variables used by the py_trees library.
 ##############################################################################
 
 import enum
+import math
 
 ##############################################################################
 # Status
 ##############################################################################
-
-# """ An enumerator representing the status of a behaviour """
-# Status = Enum('Status', 'SUCCESS FAILURE RUNNING INVALID')
 
 
 class Status(enum.Enum):
@@ -38,27 +36,121 @@ class Status(enum.Enum):
     """Behaviour is uninitialised and inactive, i.e. this is the status before first entry, and after a higher priority switch has occurred."""
 
 
-class ParallelPolicy(enum.Enum):
-    """Policy rules for :py:class:`~py_trees.composites.Parallel` composites."""
-
-    SUCCESS_ON_ALL = "SUCCESS_ON_ALL"
-    """:py:data:`~py_trees.common.Status.SUCCESS` only when each and every child returns :py:data:`~py_trees.common.Status.SUCCESS`."""
-    SUCCESS_ON_ONE = "SUCCESS_ON_ONE"
-    """:py:data:`~py_trees.common.Status.SUCCESS` so long as at least one child has :py:data:`~py_trees.common.Status.SUCCESS` and the remainder are :py:data:`~py_trees.common.Status.RUNNING`"""
-
-
-class Foo(enum.IntEnum):
+class ParallelPolicy(object):
     """
-    Foo
+    Configurable policies for :py:class:`~py_trees.composites.Parallel` behaviours.
     """
-    MORE_FOO = 1
-    """More Foo"""
+    class Base(object):
+        """
+        Base class for parallel policies. Should never be used directly.
+        """
+        def __init__(self, synchronise=False):
+            """
+            Default policy configuration.
+
+            Args:
+                synchronise (:obj:`bool`): stop ticking of children with status :py:data:`~py_trees.common.Status.SUCCESS` until the policy criteria is met
+            """
+            self.synchronise = synchronise
+
+    class SuccessOnAll(Base):
+        """
+        Return :py:data:`~py_trees.common.Status.SUCCESS` only when each and every child returns
+        :py:data:`~py_trees.common.Status.SUCCESS`.
+        """
+        def __init__(self, synchronise=True):
+            """
+            Policy configuration.
+
+            Args:
+                synchronise (:obj:`bool`): stop ticking of children with status :py:data:`~py_trees.common.Status.SUCCESS` until the policy criteria is met
+            """
+            super().__init__(synchronise=synchronise)
+
+        def __str__(self) -> str:
+            """
+            Human readable description.
+            """
+            description = "--" + self.__class__.__name__ + "("
+            description += u'\u26A1' if self.synchronise else "-"  # lightning bolt
+            description += "--"
+            return description
+
+    class SuccessOnOne(Base):
+        """
+        Return :py:data:`~py_trees.common.Status.SUCCESS` so long as at least one child has :py:data:`~py_trees.common.Status.SUCCESS`
+        and the remainder are :py:data:`~py_trees.common.Status.RUNNING`
+        """
+        def __init__(self):
+            """
+            No configuration necessary for this policy.
+            """
+            super().__init__(synchronise=False)
+
+        def __str__(self) -> str:
+            """
+            Human readable description.
+            """
+            return "--" + self.__class__.__name__ + "--"
+
+    class SuccessOnSelected(Base):
+        """
+        Retrun :py:data:`~py_trees.common.Status.SUCCESS` so long as each child in a specified list returns
+        :py:data:`~py_trees.common.Status.SUCCESS`.
+        """
+        def __init__(self, children, synchronise=True):
+            """
+            Policy configuraiton.
+
+            Args:
+                children ([:class:`~py_trees.behaviour.Behaviour`]): list of children to succeed on
+                synchronise (:obj:`bool`): stop ticking of children with status :py:data:`~py_trees.common.Status.SUCCESS` until the policy criteria is met
+            """
+            super().__init__(synchronise=synchronise)
+            self.children = children
+
+        def __str__(self) -> str:
+            """
+            Human readable description.
+            """
+            description = "--" + self.__class__.__name__ + "("
+            description += u'\u26A1' if self.synchronise else "-"  # lightning bolt
+            description += ","
+            description += "[" + ",".join([c.name for c in self.children]) + "]"
+            description += ")--"
+            return description
+
+
+class OneShotPolicy(enum.Enum):
+    """Policy rules for :py:class:`~py_trees.decorators.OneShot` (decorator) or :py:meth:`~py_trees.idioms.oneshot (idiom) oneshots."""
+
+    ON_COMPLETION = [Status.SUCCESS, Status.FAILURE]
+    """Return :py:data:`~py_trees.common.Status.SUCCESS` after the specified child/subtree reaches completion (:py:data:`~py_trees.common.Status.SUCCESS` || :py:data:`~py_trees.common.Status.FAILURE`)."""
+    ON_SUCCESSFUL_COMPLETION = [Status.SUCCESS]
+    """Permits the oneshot to keep trying until it's first success."""
+
+
+class Name(enum.Enum):
+    """
+    Naming conventions.
+    """
+    AUTO_GENERATED = "AUTO_GENERATED"
+    """:py:data:`~py_trees.common.Name.AUTO_GENERATED` leaves it to the behaviour to generate a useful, informative name."""
+
+
+class Duration(enum.Enum):
+    """
+    Naming conventions.
+    """
+    INFINITE = math.inf
+    """:py:data:`~py_trees.common.Duration.INFINITE` oft used for perpetually blocking operations."""
+    UNTIL_THE_BATTLE_OF_ALFREDO = math.inf
+    """:py:data:`~py_trees.common.Duration.UNTIL_THE_BATTLE_OF_ALFREDO` is an alias for :py:data:`~py_trees.common.Duration.INFINITE`."""
 
 
 class ClearingPolicy(enum.IntEnum):
     """
     Policy rules for behaviours to dictate when data should be cleared/reset.
-    Used by the :py:mod:`~py_trees.subscribers` module.
     """
     ON_INITIALISE = 1
     """Clear when entering the :py:meth:`~py_trees.behaviour.Behaviour.initialise` method."""
