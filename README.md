@@ -1,3 +1,26 @@
+## py_trees (crystal) - 1.0.0-0
+
+The packages in the `py_trees` repository were released into the `crystal` distro by running `/usr/bin/bloom-release --track crystal --rosdistro crystal py_trees` on `Tue, 22 Jan 2019 04:58:47 -0000`
+
+The `py_trees` package was released.
+
+Version of package(s) in repository `py_trees`:
+
+- upstream repository: https://github.com/stonier/py_trees.git
+- release repository: unknown
+- rosdistro version: `null`
+- old version: `null`
+- new version: `1.0.0-0`
+
+Versions of tools used:
+
+- bloom version: `0.7.1`
+- catkin_pkg version: `0.4.9`
+- rosdep version: `0.13.0`
+- rosdistro version: `0.7.0`
+- vcstools version: `0.1.40`
+
+
 ## py_trees (bouncy) - 0.8.2-0
 
 The packages in the `py_trees` repository were released into the `bouncy` distro by running `/usr/bin/bloom-release --track bouncy --rosdistro bouncy py_trees` on `Fri, 19 Oct 2018 23:43:47 -0000`
