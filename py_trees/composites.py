@@ -474,7 +474,7 @@ class Sequence(Composite):
         """
         self.logger.debug("%s.tick()" % self.__class__.__name__)
         if self.status != Status.RUNNING:
-            self.logger.debug("%s.tick() [resetting]" % self.__class__.__name__)
+            self.logger.debug("%s.tick() [!RUNNING->resetting child index]" % self.__class__.__name__)
             # sequence specific handling
             self.current_index = 0
             for child in self.children:
@@ -589,7 +589,8 @@ class Parallel(Composite):
         if new_status != Status.RUNNING:
             for child in self.children:
                 if child.status == Status.RUNNING:
-                    child.stop(new_status)
+                    # interrupt it (exactly as if it was interrupted by a higher priority)
+                    child.stop(Status.INVALID)
             self.stop(new_status)
         self.status = new_status
         yield self
