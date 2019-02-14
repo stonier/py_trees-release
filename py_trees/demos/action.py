@@ -23,7 +23,7 @@
 import argparse
 import atexit
 import multiprocessing
-import py_trees.common
+import py_trees
 import time
 
 import py_trees.console as console
@@ -112,7 +112,7 @@ class Action(py_trees.behaviour.Behaviour):
         super(Action, self).__init__(name)
         self.logger.debug("%s.__init__()" % (self.__class__.__name__))
 
-    def setup(self):
+    def setup(self, unused_timeout=15):
         """
         No delayed initialisation required for this example.
         """
@@ -121,6 +121,7 @@ class Action(py_trees.behaviour.Behaviour):
         self.planning = multiprocessing.Process(target=planning, args=(self.child_connection,))
         atexit.register(self.planning.terminate)
         self.planning.start()
+        return True
 
     def initialise(self):
         """
@@ -134,12 +135,12 @@ class Action(py_trees.behaviour.Behaviour):
         """
         Increment the counter and decide upon a new status result for the behaviour.
         """
-        new_status = py_trees.common.Status.RUNNING
+        new_status = py_trees.Status.RUNNING
         if self.parent_connection.poll():
             self.percentage_completion = self.parent_connection.recv().pop()
             if self.percentage_completion == 100:
-                new_status = py_trees.common.Status.SUCCESS
-        if new_status == py_trees.common.Status.SUCCESS:
+                new_status = py_trees.Status.SUCCESS
+        if new_status == py_trees.Status.SUCCESS:
             self.feedback_message = "Processing finished"
             self.logger.debug("%s.update()[%s->%s][%s]" % (self.__class__.__name__, self.status, new_status, self.feedback_message))
         else:

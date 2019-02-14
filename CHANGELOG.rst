@@ -1,84 +1,41 @@
-Release Notes
-=============
-
-Forthcoming
------------
-
-1.0.x (2019-01-18)
-------------------
-
-**Breaking API**
-
-* [behaviour] setup() no longer returns a boolean, catch exceptions instead, `#143 <https://github.com/stonier/py_trees/issues/143>`_.
-* [behaviour] setup() no longer takes timeouts, responsibility moved to BehaviourTree, `#148 <https://github.com/stonier/py_trees/issues/148>`_.
-* [decorators] new-style decorators found in py_trees.decorators
-* [decorators] new-style decorators stop their running child on completion (SUCCESS||FAILURE)
-* [decorators] old-style decorators in py_trees.meta deprecated
-
-**New Features**
-
-* [blackboard] added a method for clearing the entire blackboard (useful for tests)
-* [composites] raise TypeError when children's setup methods don't return a bool (common mistake)
-* [composites] new parallel policies, SuccessOnAll, SuccessOnSelected
-* [decorators] oneshot policies for activating on completion or *successful* completion only
-* [meta] behaviours from functions can now automagically generate names
-
-0.8.x (2018-10-18)
-------------------
-
-**Breaking API**
-
-* Lower level namespace types no longer exist (PR117_), e.g. :code:`py_trees.Status` -> :code:`py_trees.common.Status`
-* Python2 support dropped
-
-**New Features**
-
-* [idioms] 'Pick Up Where You Left Off'
-* [idioms] 'OneShot'
-
 Changelog
 =========
 
-0.8.0 (2018-10-18)
+0.6.7 (2019-02-13)
 ------------------
-* [infra] shortcuts to types in __init__.py removed (PR117_)
-* [bugfix] python3 rosdeps
-* [idioms] pick_up_where_you_left_off added
+[decorators] default option for collapsing decorators (resolves py_trees_ros bug)
 
-0.7.5 (2018-10-10)
+0.6.6 (2019-02-13)
 ------------------
-* [idioms] oneshot added
-* [bugfix] properly set/reset parents when replacing/removing children in composites
-
-0.7.0 (2018-09-27)
-------------------
-* [announce] python3 only support from this point forward
-* [announce] now compatible for ros2 projects
+[decorators] new-style decorators can be found in py_trees.decorators
+[decorators] new-style decorators now stop their running child on completion (SUCCESS||FAILURE)
+[decorators] onshot now activates upon *successful completion* (SUCCESS only), previously on *any completion* (SUCCESS||FAILURE)
+[meta] behaviours from functions can now automagically generate names
 
 0.6.5 (2018-09-19)
 ------------------
-* [bugfix] pick up missing feedback messages in inverters
-* [bugfix] eliminate costly/spammy blackboard variable check feedback message
+* Inverters bugfix - pick up missing feedback messages
+* Eliminate costly blackboard variable check feedback message
 
 0.6.4 (2018-09-19)
 ------------------
-* [bugfix] replace awkward newlines with spaces in ascii trees
+* Ascii tree bugfix - replace awkward newlines with spaces
 
 0.6.3 (2018-09-04)
 ------------------
-* [bugfix] don't send the parellel's status to running children, invalidate them instead
+* Parallels bugfix - don't send own status to running children, invalidate them instead
 
 0.6.2 (2018-08-31)
 ------------------
-* [bugfix] oneshot now reacts to priority interrupts correctly
+* Oneshot bugfix - react to priority interrupts correctly
 
 0.6.1 (2018-08-20)
 ------------------
-* [bugfix] oneshot no longer permanently modifies the original class
+* Oneshot bugfix - no longer permanently modifies the original class
 
 0.6.0 (2018-05-15)
 ------------------
-* [infra] python 2/3 compatibility
+* Python 2/3 compatibility
 
 0.5.10 (2017-06-17)
 -------------------
@@ -165,5 +122,3 @@ Changelog
 * ascii tree and tick views
 * use generators and visitors to more efficiently walk/introspect trees
 * a first implementation of behaviour trees in python
-
-.. _PR117: https://github.com/stonier/py_trees/pull/117

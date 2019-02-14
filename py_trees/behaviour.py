@@ -32,22 +32,22 @@ from .common import Status
 class Behaviour(object):
     """
     Defines the basic properties and methods required of a node in a
-    behaviour tree. When implementing your own behaviour,
+    behaviour tree.
+
+    Uses all the whizbang tricks from coroutines and generators to do this
+    as optimally as you may in python. When implementing your own behaviour,
     subclass this class.
 
     Args:
         name (:obj:`str`): the behaviour name
-
-    Raises:
-        TypeError: if the provided name is not a string
+        *args: variable length argument list.
+        **kwargs: arbitrary keyword arguments.
 
     Attributes:
-        id (:class:`uuid.UUID`): automagically generated unique identifier for the behaviour
         name (:obj:`str`): the behaviour name
         status (:class:`~py_trees.common.Status`): the behaviour status (:data:`~py_trees.common.Status.INVALID`, :data:`~py_trees.common.Status.RUNNING`, :data:`~py_trees.common.Status.FAILURE`, :data:`~py_trees.common.Status.SUCCESS`)
         parent (:class:`~py_trees.behaviour.Behaviour`): a :class:`~py_trees.composites.Composite` instance if nested in a tree, otherwise None
         children ([:class:`~py_trees.behaviour.Behaviour`]): empty for regular behaviours, populated for composites
-        logger (:class:`logging.Logger`): a simple logging mechanism
         feedback_message(:obj:`str`): a simple message used to notify of significant happenings
         blackbox_level (:class:`~py_trees.common.BlackBoxLevel`): a helper variable for dot graphs and runtime gui's to collapse/explode entire subtrees dependent upon the blackbox level.
 
@@ -57,11 +57,11 @@ class Behaviour(object):
        * :ref:`The Action Behaviour Demo <py-trees-demo-action-behaviour-program>`
 
     """
-    def __init__(self, name=common.Name.AUTO_GENERATED):
-        if not name or name == common.Name.AUTO_GENERATED:
-            name = self.__class__.__name__
-        if not isinstance(name, str):
-            raise TypeError("a behaviour name should be a string, but you passed in {}".format(type(name)))
+    def __init__(self, name="", *args, **kwargs):
+        try:
+            assert isinstance(name, basestring), "a behaviour name should be a string, but you passed in %s" % type(name)  # python2 compatibility
+        except NameError:
+            assert isinstance(name, str), "a behaviour name should be a string, but you passed in %s" % type(name)
         self.id = uuid.uuid4()  # used to uniquely identify this node (helps with removing children from a tree)
         self.name = name
         self.status = Status.INVALID
@@ -73,34 +73,25 @@ class Behaviour(object):
         self.blackbox_level = common.BlackBoxLevel.NOT_A_BLACKBOX
 
     ############################################
-    # User Customisable Callbacks
+    # User Customisable Functions (virtual)
     ############################################
 
-    def setup(self):
+    def setup(self, timeout):
         """
+        Subclasses may override this method to do any one-time delayed construction that
+        is necessary for runtime. This is best done here rather than in the constructor
+        so that trees can be instantiated on the fly without any severe runtime requirements
+        (e.g. a hardware sensor) on any pc to produce visualisations such as dot graphs.
+
         .. note:: User Customisable Callback
 
-        Subclasses may override this method to do any one-off delayed construction &
-        validation that is necessary prior to ticking the tree. Such construction is best
-        done here rather than in __init__ so that trees can be instantiated on the fly for
-        easy rendering to dot graphs without imposing runtime requirements (e.g. establishing
-        a middleware connection to a sensor).
+        Args:
+            timeout (:obj:`float`): time to wait (0.0 is blocking forever)
 
-        Equally as important, executing methods which validate the configuration of
-        behaviours will help increase confidence that your tree will successfully tick
-        without logical software errors before actually ticking. This is useful both
-        before a tree's first tick and immediately after any modifications to a tree
-        has been made between ticks.
-
-        .. tip::
-
-           Faults are notified to the user of the behaviour via exceptions.
-           Choice of exception to use is left to the user.
-
-        Raises:
-            Exception: if this behaviour has a fault in construction or configuration
+        Returns:
+            :obj:`bool`: whether it timed out trying to setup
         """
-        pass
+        return True
 
     def initialise(self):
         """
@@ -167,19 +158,8 @@ class Behaviour(object):
         for unused in self.tick():
             pass
 
-    def setup_with_descendants(self):
-        """
-        Iterates over this child, it's children (it's children's children, ...)
-        calling the user defined :meth:`~py_trees.behaviour.Behaviuor.setup`
-        on each in turn.
-        """
-        for child in self.children:
-            for node in child.iterate():
-                node.setup()
-        self.setup()
-
     ############################################
-    # Introspection
+    # Workers
     ############################################
     def has_parent_with_name(self, name):
         """
@@ -229,11 +209,6 @@ class Behaviour(object):
         """
         return self if self.status != Status.INVALID else None
 
-    ############################################
-    # Advanced Methods
-    # (oft indirectly used from a TreeManager)
-    ############################################
-
     def visit(self, visitor):
         """
         This is functionality that enables external introspection into the behaviour. It gets used
@@ -266,9 +241,6 @@ class Behaviour(object):
 
         Yields:
             :class:`~py_trees.behaviour.Behaviour`: a reference to itself
-
-        .. warning:: Override this method only in exceptional circumstances, prefer overriding :meth:`~py_trees.behaviour.Behaviour.update` instead.
-
         """
         self.logger.debug("%s.tick()" % (self.__class__.__name__))
         if self.status != Status.RUNNING:
@@ -316,22 +288,9 @@ class Behaviour(object):
         generator. It will finally set the new status once the user's :meth:`~py_trees.behaviour.Behaviour.terminate`
         function has been called.
 
-        .. warning:: Override this method only in exceptional circumstances, prefer overriding :meth:`~py_trees.behaviour.Behaviour.terminate` instead.
+        .. warning:: Do not use this method, override :meth:`~py_trees.behaviour.Behaviour.terminate` instead.
         """
         self.logger.debug("%s.stop(%s)" % (self.__class__.__name__, "%s->%s" % (self.status, new_status) if self.status != new_status else "%s" % new_status))
         self.terminate(new_status)
         self.status = new_status
         self.iterator = self.tick()
-
-    def verbose_info_string(self):
-        """
-        Override to provide a one line informative string about the behaviour. This
-        gets used in, e.g. dot graph rendering of the tree.
-
-        .. tip::
-           Use this sparingly. A good use case is for when the behaviour type
-           and class name isn't sufficient to inform the user about it's
-           mechanisms for controlling the flow of a tree tick (e.g. parallels
-           with policies).
-        """
-        return ""

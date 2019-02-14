@@ -47,16 +47,13 @@ py_trees.common
     :members: ON_INITIALISE, ON_SUCCESS, NEVER
     :show-inheritance:
 
-.. autoclass:: py_trees.common.Duration
-    :members: INFINITE, UNTIL_THE_BATTLE_OF_ALFREDO
-    :show-inheritance:
-
 .. autoclass:: py_trees.common.Name
     :members: AUTO_GENERATED
     :show-inheritance:
 
 .. autoclass:: py_trees.common.ParallelPolicy
-    :members: SuccessOnAll, SuccessOnOne, SuccessOnSelected
+    :members: SUCCESS_ON_ALL, SUCCESS_ON_ONE
+    :show-inheritance:
 
 .. autoclass:: py_trees.common.Status
     :members: SUCCESS, FAILURE, RUNNING, INVALID
@@ -89,7 +86,7 @@ py_trees.console
 py_trees.decorators
 -------------------
 
-.. automodule:: py_trees.decorators
+ .. automodule:: py_trees.decorators
     :members:
     :special-members:
     :show-inheritance:
@@ -103,17 +100,6 @@ py_trees.display
     :show-inheritance:
     :synopsis: visualising trees with dot graphs, strings or on stdout
 
-.. _py-trees-idioms-module:
-
-py_trees.idioms
----------------
-
-.. automodule:: py_trees.idioms
-    :members:
-    :special-members:
-    :show-inheritance:
-    :synopsis: creators of common behaviour tree patterns
-
 py_trees.meta
 -------------
 
@@ -121,7 +107,7 @@ py_trees.meta
     :members:
     :special-members:
     :show-inheritance:
-    :synopsis: factories for behaviours
+    :synopsis: factories and decorators for behaviours
 
 py_trees.timers
 ---------------

@@ -1,18 +1,14 @@
-#
-# License: BSD
-#   https://raw.githubusercontent.com/stonier/py_trees/devel/LICENSE
+#!/usr/bin/env python
 #
 ##############################################################################
-# Documentation
+# Imports
 ##############################################################################
 
-"""
-Version number provided separately here so there is easy access for the module,
-setup.py and sphinx.
-"""
+import py_trees
 
 ##############################################################################
-# Version
+# Main
 ##############################################################################
 
-__version__ = '0.6.7'
+if __name__ == '__main__':
+    py_trees.demos.stewardship.main()

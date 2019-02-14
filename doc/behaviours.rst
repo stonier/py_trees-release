@@ -11,7 +11,8 @@ Skeleton
 --------
 
 Behaviours in py_trees are created by subclassing the
-:class:`~py_trees.behaviour.Behaviour` class. A skeleton example:
+:class:`~py_trees.behaviour.Behaviour` class. A skeleton
+with informative comments is shown below.
 
 .. literalinclude:: examples/skeleton_behaviour.py
    :language: python
@@ -100,10 +101,10 @@ in the ``update()`` method.
 
 The feedback message is designed to assist in notifying humans when a
 significant event happens or for deciding when to log the state of
-a tree. If you notify or log every tick, then you end up with a lot of
+a tree. If you notify or log every tick, then you end up with alot of
 noise sorting through an abundance of data in which nothing much is
 happening to find the one point where something significant occurred
-that led to surprising or catastrophic behaviour.
+that led to surprising or catostrophic behaviour.
 
 Setting the feedback message is usually important when something
 significant happens in the ``RUNNING`` state or to provide information
@@ -120,7 +121,7 @@ Loggers
 
 These are used throughout the demo programs. They are not intended to be
 for anything heavier than debugging simple examples. This kind of logging
-tends to get rather heavy and requires a lot of filtering to find the points
+tends to get rather heavy and requires alot of filtering to find the points
 of change that you are interested in (see comments about the feedback
 messages above).
 
@@ -143,4 +144,11 @@ concepts discussed above, but not present in the very simple lifecycle
     is what is generally referred to as a :term:`blocking` behaviour.
 
 .. image:: images/action.gif
+
+Meta Behaviours
+---------------
+
+.. automodule:: py_trees.meta
+    :noindex:
+
 

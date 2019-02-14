@@ -83,14 +83,14 @@ class BlackboardWriter(py_trees.behaviour.Behaviour):
 
     def update(self):
         """
-        Write a dictionary to the blackboard and return :data:`~py_trees.common.Status.SUCCESS`.
+        Write a dictionary to the blackboard and return :data:`~py_trees.Status.SUCCESS`.
         """
         self.logger.debug("%s.update()" % (self.__class__.__name__))
         self.blackboard.spaghetti = {"type": "Gnocchi", "quantity": 2}
-        return py_trees.common.Status.SUCCESS
+        return py_trees.Status.SUCCESS
 
 
-def create_root():
+def create_tree():
     root = py_trees.composites.Sequence("Sequence")
     set_blackboard_variable = py_trees.blackboard.SetBlackboardVariable(name="Set Foo", variable_name="foo", variable_value="bar")
     write_blackboard_variable = BlackboardWriter(name="Writer")
@@ -111,7 +111,7 @@ def main():
     print(description())
     py_trees.logging.level = py_trees.logging.Level.DEBUG
 
-    root = create_root()
+    tree = create_tree()
 
     ####################
     # Rendering
@@ -123,10 +123,10 @@ def main():
     ####################
     # Execute
     ####################
-    root.setup_with_descendants()
+    tree.setup(timeout=15)
     print("\n--------- Tick 0 ---------\n")
-    root.tick_once()
+    tree.tick_once()
     print("\n")
-    py_trees.display.print_ascii_tree(root, show_status=True)
+    py_trees.display.print_ascii_tree(tree, show_status=True)
     print("\n")
     print(py_trees.blackboard.Blackboard())

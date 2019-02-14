@@ -25,13 +25,10 @@ can also be easily used as inspiration for your own tree custodians.
 # Imports
 ##############################################################################
 
-import multiprocessing
 import time
 
 from . import behaviour
-from . import common
 from . import composites
-from . import visitors
 
 CONTINUOUS_TICK_TOCK = -1
 
@@ -64,12 +61,12 @@ class BehaviourTree(object):
         post_tick_handlers ([:obj:`func`]): functions that run after the entire tree is ticked
 
     Raises:
-        TypeError: if root variable is not an instance of :class:`~py_trees.behaviour.Behaviour`
+        AssertionError: if incoming root variable is not the correct type
     """
-    def __init__(self, root: behaviour.Behaviour):
+    def __init__(self, root):
         self.count = 0
-        if not isinstance(root, behaviour.Behaviour):
-            raise TypeError("root node must be an instance of 'py_trees.behaviour.Behaviour' [{}]".format(type(root)))
+        assert root is not None, "root node must not be 'None'"
+        assert isinstance(root, behaviour.Behaviour), "root node must be an instance of or descendant of pytrees.behaviour.Behaviour"
         self.root = root
         self.visitors = []
         self.pre_tick_handlers = []
@@ -120,11 +117,9 @@ class BehaviourTree(object):
             :obj:`bool`: success or failure of the operation
 
         Raises:
-            RuntimeError: if unique id is the behaviour tree's root node id
+            AssertionError: if unique id is the behaviour tree's root node id
         """
-        # TODO: convert this to throwing exceptions instead
-        if self.root.id == unique_id:
-            raise RuntimeError("may not prune the root node")
+        assert self.root.id != unique_id, "may not prune the root node"
         for child in self.root.iterate():
             if child.id == unique_id:
                 parent = child.parent
@@ -151,7 +146,7 @@ class BehaviourTree(object):
             :obj:`bool`: suceess or failure (parent not found) of the operation
 
         Raises:
-            TypeError: if the parent is not a :class:`~py_trees.composites.Composite`
+            AssertionError: if the parent is not a :class:`~py_trees.composites.Composite`
 
         .. todo::
 
@@ -159,11 +154,9 @@ class BehaviourTree(object):
            has its own error handling (e.g. index out of range). Could also use a different api
            that relies on the id of the sibling node it should be inserted before/after.
         """
-        # TODO: convert this to throwing exceptions instead
         for node in self.root.iterate():
             if node.id == unique_id:
-                if not isinstance(node, composites.Composite):
-                    raise TypeError("parent must be a Composite behaviour.")
+                assert isinstance(node, composites.Composite), "parent must be a Composite behaviour."
                 node.insert_child(child, index)
                 if self.tree_update_handler is not None:
                     self.tree_update_handler(self.root)
@@ -185,9 +178,7 @@ class BehaviourTree(object):
         Returns:
             :obj:`bool`: suceess or failure of the operation
         """
-        # TODO: convert this to throwing exceptions instead
-        if self.root.id == unique_id:
-            raise RuntimeError("may not replace the root node")
+        assert self.root.id != unique_id, "may not replace the root node"
         for child in self.root.iterate():
             if child.id == unique_id:
                 parent = child.parent
@@ -198,38 +189,19 @@ class BehaviourTree(object):
                     return True
         return False
 
-    def setup(self, timeout: float=common.Duration.INFINITE, visitor: visitors.VisitorBase=None):
+    def setup(self, timeout):
         """
-        Crawls across the tree calling :meth:`~py_trees.behaviour.Behaviour.setup`
-        on each behaviour.
-
-        Visitors can optionally be provided to provide a node-by-node analysis
-        on the result of each node's :meth:`~py_trees.behaviour.Behaviour.setup`
-        before the next node's :meth:`~py_trees.behaviour.Behaviour.setup` is called.
-        This is useful on trees with relatively long setup times to progressively
-        report out on the current status of the operation.
+         Relays to calling the :meth:`~py_trees.behaviour.Behaviuor.setup` method
+         on the root behaviour. This in turn should get recursively called down through
+         the entire tree.
 
         Args:
-            timeout (:obj:`float`): time (s) to wait (use common.Duration.INFINITE to block indefinitely)
-            visitor (:class:`~py_trees.visitors.VisitorBase`): runnable entities on each node after it's setup
+             timeout (:obj:`float`): time to wait (0.0 is blocking forever)
 
-        Raises:
-            Exception: be ready to catch if any of the behaviours raise an exception
+        Return:
+            :obj:`bool`: suceess or failure of the operation
         """
-        if timeout == common.Duration.INFINITE:
-            timeout = None
-
-        def visited_setup():
-            for node in self.root.iterate():
-                node.setup()
-                if visitor is not None:
-                    node.visit(visitor)
-        setup_process = multiprocessing.Process(target=visited_setup)
-        setup_process.start()
-        setup_process.join(timeout=timeout)
-        if setup_process.is_alive():  # could just as easily have checked the result of join
-            setup_process.terminate()
-            raise RuntimeError("tree setup() timed out")
+        return self.root.setup(timeout)
 
     def tick(self, pre_tick_handler=None, post_tick_handler=None):
         """

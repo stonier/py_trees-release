@@ -17,6 +17,7 @@ A library of fundamental behaviours for use.
 
 from .common import Status
 from .behaviour import Behaviour
+from . import composites
 from . import meta
 
 ##############################################################################
@@ -42,12 +43,6 @@ def running(self):
     return Status.RUNNING
 
 
-def dummy(self):
-    self.logger.debug("%s.update()" % self.__class__.__name__)
-    self.feedback_message = "crash test dummy"
-    return Status.RUNNING
-
-
 Success = meta.create_behaviour_from_function(success)
 """
 Do nothing but tick over with :data:`~py_trees.common.Status.SUCCESS`.
@@ -61,11 +56,6 @@ Do nothing but tick over with :data:`~py_trees.common.Status.FAILURE`.
 Running = meta.create_behaviour_from_function(running)
 """
 Do nothing but tick over with :data:`~py_trees.common.Status.RUNNING`.
-"""
-
-Dummy = meta.create_behaviour_from_function(dummy)
-"""
-Crash test dummy used for anything dangerous.
 """
 
 ##############################################################################
@@ -123,7 +113,7 @@ class SuccessEveryN(Behaviour):
 
     .. tip::
        Use with decorators to change the status value as desired, e.g.
-       :meth:`py_trees.decorators.FailureIsRunning`
+       :meth:`py_trees.meta.failure_is_running`
     """
     def __init__(self, name, n):
         super(SuccessEveryN, self).__init__(name)
@@ -160,8 +150,8 @@ class Count(Behaviour):
     Attributes:
         count (:obj:`int`): a simple counter which increments every tick
     """
-    def __init__(self, name="Count", fail_until=3, running_until=5, success_until=6, reset=True):
-        super(Count, self).__init__(name)
+    def __init__(self, name="Count", fail_until=3, running_until=5, success_until=6, reset=True, *args, **kwargs):
+        super(Count, self).__init__(name, *args, **kwargs)
         self.count = 0
         self.fail_until = fail_until
         self.running_until = running_until
@@ -211,3 +201,15 @@ class Count(Behaviour):
         s += "  Resets : %s\n" % self.number_count_resets
         s += "  Updates: %s\n" % self.number_updated
         return s
+
+
+##############################################################################
+# Composite Behaviours
+##############################################################################
+
+@meta.oneshot
+class OneshotSequence(composites.Sequence):
+    """
+    A sequence with a oneshot decorator applied to it.
+    """
+    pass

@@ -34,22 +34,21 @@ def pre_tick_visitor(behaviour_tree):
 def tick_tree(tree,
               from_tick,
               to_tick,
-              *,
-              visitors=[],
+              visitor=None,
               print_snapshot=False,
               print_blackboard=False
               ):
     print("\n================== Iteration {}-{} ==================\n".format(from_tick, to_tick))
     for i in range(from_tick, to_tick + 1):
-        print(("\n--------- Run %s ---------\n" % i))
+        print("\n--------- Run %s ---------\n" % i)
         for node in tree.tick():
-            for visitor in visitors:
+            if visitor is not None:
                 node.visit(visitor)
-    if print_snapshot:
-        print(console.green + "\nAscii Tree Snapshot" + console.reset)
-        display.print_ascii_tree(tree, show_status=True)
-    if print_blackboard:
-        print(str(blackboard.Blackboard()))
+        if print_snapshot:
+            print(console.green + "\nAscii Tree Snapshot" + console.reset)
+            display.print_ascii_tree(tree, show_status=True)
+        if print_blackboard:
+            print(str(blackboard.Blackboard()))
 
 
 def print_summary(nodes):

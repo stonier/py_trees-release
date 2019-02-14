@@ -16,10 +16,9 @@ Assorted utility functions.
 ##############################################################################
 
 import os
-import re
 
 ##############################################################################
-# System Tools
+# System OS Tools
 ##############################################################################
 
 
@@ -50,66 +49,19 @@ def which(program):
     return None
 
 
-def get_valid_filename(s: str) -> str:
-    """
-    Return the given string converted to a string that can be used for a clean
-    filename (without extension). Remove leading and trailing spaces; convert
-    other spaces and newlines to underscores; and remove anything that is not
-    an alphanumeric, dash, underscore, or dot.
-
-    .. code-block:: python
-
-        >>> utilities.get_valid_filename("john's portrait in 2004.jpg")
-        'johns_portrait_in_2004.jpg'
-
-    Args:
-        program (:obj:`str`): string to convert to a valid filename
-
-    Returns:
-        :obj:`str`: a representation of the specified string as a valid filename
-    """
-    s = str(s).strip().lower().replace(' ', '_').replace('\n', '_')
-    return re.sub(r'(?u)[^-\w.]', '', s)
-
-
-def get_fully_qualified_name(instance: object) -> str:
-    """
-    Get at the fully qualified name of an object, e.g.
-    an instance of a :class:`~py_trees.composites.Sequence`
-    becomes 'py_trees.composites.Sequence'.
-
-    Args:
-        instance (:obj:`object`): an instance of any class
-
-    Returns:
-        :obj:`str`: the fully qualified name
-    """
-    module = instance.__class__.__module__
-    # if there is no module, it will report builtin, get that
-    # string via what should remain constant, the 'str' class
-    # and check against that.
-    builtin = str.__class__.__module__
-    if module is None or module == builtin:
-        return instance.__class__.__name__
-    else:
-        return module + '.' + instance.__class__.__name__
-
 ##############################################################################
 # Python Helpers
 ##############################################################################
 
-
 def static_variables(**kwargs):
     """
-    This is a decorator that can be used with python methods to attach
+    This is a decorator that can be used with python methods to attach 
     initialised static variables to the method.
-
-    .. code-block:: python
-
-       @static_variables(counter=0)
-       def foo():
-           foo.counter += 1
-           print("Counter: {}".formta(foo.counter))
+     .. code-block:: python
+        @static_variables(counter=0)
+        def foo():
+            foo.counter += 1
+            print("Counter: {}".formta(foo.counter))
     """
     def decorate(func):
         for k in kwargs:

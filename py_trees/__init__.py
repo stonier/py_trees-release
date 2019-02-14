@@ -22,7 +22,6 @@ from . import console  # noqa
 from . import decorators  # noqa
 from . import demos  # noqa
 from . import display  # noqa
-from . import idioms #noqa
 from . import logging  # noqa
 from . import meta  # noqa
 from . import programs  # noqa
@@ -31,5 +30,17 @@ from . import tests  # noqa
 from . import timers  # noqa
 from . import trees  # noqa
 from . import utilities  # noqa
-from . import version  # noqa
 from . import visitors  # noqa
+
+# really core conveniences (only the core ones please)
+from .behaviour import Behaviour
+from .blackboard import Blackboard
+from .common import Status
+from .composites import Composite, Selector, Sequence, Chooser
+from .trees import BehaviourTree, CONTINUOUS_TICK_TOCK
+
+##############################################################################
+# Version
+##############################################################################
+
+from .version import __version__

@@ -15,7 +15,6 @@ Py Trees
    composites
    decorators
    blackboards
-   idioms
    trees
    visualisation
    the_crazy_hospital

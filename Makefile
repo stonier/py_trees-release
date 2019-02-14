@@ -58,8 +58,7 @@ deb:
 #
 # Note, you probably need to register the first time.
 # You can also send it to testpypi first if you wish (see tutorial).
-
-pypi:
+pypi: 
 	python setup.py sdist bdist_wheel
 	twine upload dist/*
 
