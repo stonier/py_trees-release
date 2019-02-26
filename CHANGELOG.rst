@@ -1,6 +1,18 @@
 Changelog
 =========
 
+
+0.5.12 (2019-02-13)
+------------------
+[decorators] default option for collapsing decorators (resolves py_trees_ros bug)
+
+0.5.11 (2019-02-13)
+-------------------
+[decorators] new-style decorators can be found in py_trees.decorators
+[decorators] new-style decorators now stop their running child on completion (SUCCESS||FAILURE)
+[decorators] onshot now activates upon *successful completion* (SUCCESS only), previously on *any completion* (SUCCESS||FAILURE)
+[meta] behaviours from functions can now automagically generate names
+
 0.5.10 (2017-06-17)
 -------------------
 * [meta] add children monkeypatching for composite imposters
