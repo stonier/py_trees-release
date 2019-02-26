@@ -143,17 +143,33 @@ def create_imposter(cls):
         def __init__(self, *args, **kwargs):
             """
             Pass on the arguments intact except for the name. That is
-            modified to begin with an underscore to denote that it is
-            internal.
+            prefixed with an underscore to denote that it is internal and
+            not linked in the usual fashion.
             """
-            self.original = cls(*args, **kwargs)
-            super(Imposter, self).__init__(self.original.name)
-            self.original.name = "_" + self.original.name
+            if 'name' in kwargs:
+                kwargs['name'] = str(kwargs['name'])
+                name = kwargs['name']
+                kwargs['name'] = "_" + kwargs['name']
+                new_args = args
+            else:
+                # if the list is empty, give it a placeholder name
+                if not args:
+                    new_args = ["Imposter"]
+                else:
+                    new_args = list(args)
+                    new_args[0] = str(new_args[0])
+                name = new_args[0]
+                new_args[0] = "_" + name
+                new_args = tuple(new_args)
+            super(Imposter, self).__init__(name)
+            self.original = cls(*new_args, **kwargs)
 
             # aliases to original variables/methods
             self.blackbox_level = self.original.blackbox_level
             self.children = self.original.children
             self.setup = self.original.setup
+            self.terminate = self.original.terminate
+            self.stop = self.original.stop
             # id is important to match for composites...the children must relate to the correct parent id
             self.id = self.original.id
 
@@ -218,17 +234,6 @@ def create_imposter(cls):
             """
             return self.original.status
 
-        def terminate(self, new_status):
-            """
-            Imposter's custom implementation of termination that is called when
-            higher priority interrupts occur. Note that stop/terminate are not called
-            in the usual sequence of a tick, since that would double up on stop
-            calls to the underlying original.
-            """
-            self.logger.debug("%s.terminate()[%s]" % (self.__class__.__name__, new_status))
-            self.original.stop(new_status)
-            self.status = self.original.status
-
         def __getattr__(self, name):
             """
             So we can pull extra attributes in the original above and beyond the behaviour attributes.
@@ -237,9 +242,9 @@ def create_imposter(cls):
 
     return Imposter
 
-##############################################################################
-# Timeout
-##############################################################################
+# ##############################################################################
+# # Timeout
+# ##############################################################################
 
 
 def timeout(cls, duration):
@@ -318,63 +323,6 @@ def timeout(cls, duration):
     setattr(Timeout, "terminate", _timeout_terminate(Timeout.terminate))
     return Timeout
 
-##############################################################################
-# Oneshot
-##############################################################################
-
-
-def oneshot(cls):
-    def _oneshot_init(func):
-        @functools.wraps(func)
-        def wrapped(self, *args, **kwargs):
-            func(self, *args, **kwargs)
-            self.final_status = None
-        return wrapped
-
-    def _oneshot_update(func):
-        @functools.wraps(func)
-        def wrapped(self, *args, **kwargs):
-            self.logger.debug("OneShot.wrapped_update()")
-            if self.final_status:
-                return self.final_status
-            else:
-                if self.original.status in (common.Status.FAILURE, common.Status.SUCCESS):
-                    self.final_status = self.original.status
-                return self.original.status
-        return wrapped
-
-    def _oneshot_tick(func):
-        @functools.wraps(func)
-        def wrapped(self, *args, **kwargs):
-            if self.final_status:
-                self.status = self.final_status
-                self.logger.debug("OneShot.wrapped_tick()[rebounding]")
-                yield self
-            else:
-                self.logger.debug("OneShot.wrapped_tick()")
-                for behaviour in func(self):
-                    yield behaviour
-        return wrapped
-
-    def _oneshot_terminate(func):
-        @functools.wraps(func)
-        def wrapped(self, new_status):
-            self.logger.debug("OneShot.wrapped_terminate()[{}]".format(new_status))
-            # handle only the interrupt/reset case
-            if new_status == common.Status.INVALID:
-                if self.final_status:
-                    self.status = new_status
-                else:
-                    self.original.stop(new_status)
-                    self.status = self.original.status
-        return wrapped
-
-    OneShot = create_imposter(cls)
-    setattr(OneShot, "__init__", _oneshot_init(OneShot.__init__))
-    setattr(OneShot, "update", _oneshot_update(OneShot.update))
-    setattr(OneShot, "tick", _oneshot_tick(OneShot.tick))
-    setattr(OneShot, "terminate", _oneshot_terminate(OneShot.terminate))
-    return OneShot
 
 ##############################################################################
 # Inverter
@@ -409,10 +357,10 @@ def inverter(cls):
         @functools.wraps(func)
         def wrapped(self):
             if self.original.status == common.Status.SUCCESS:
-                self.feedback_message = "success -> failure [{}]".format(self.original.feedback_message)
                 return common.Status.FAILURE
+                self.feedback_message = "success -> failure"
             elif self.original.status == common.Status.FAILURE:
-                self.feedback_message = "failure -> success [{}]".format(self.original.feedback_message)
+                self.feedback_message = "failure -> success"
                 return common.Status.SUCCESS
             else:
                 self.feedback_message = self.original.feedback_message
@@ -422,6 +370,56 @@ def inverter(cls):
     Inverter = create_imposter(cls)
     setattr(Inverter, "update", _update(Inverter.update))
     return Inverter
+
+##############################################################################
+# Oneshot
+##############################################################################
+
+
+def _oneshot_tick(func):
+    """
+    Replace the default tick with one which runs the original function only if
+    the oneshot variable is unset, yielding the unmodified object otherwise.
+    """
+    @functools.wraps(func)
+    def wrapped(self, *args, **kwargs):
+        if self.status == common.Status.FAILURE or self.status == common.Status.SUCCESS:
+            # if returned success/fail at any point, don't update or re-init
+            yield self
+        else:
+            # otherwise, run the tick as normal yield from in python 3.3
+            for child in func(self, *args, **kwargs):
+                yield child
+    return wrapped
+
+
+def oneshot(cls):
+    """
+    A decorator that ensures the given behaviour run only until it returns
+    success or failure. For all subsequent re-entries to the behaviour, it
+    will continue returning the same status.
+
+    Args:
+        cls (:class:`~py_trees.behaviour.Behaviour`): an existing behaviour class type
+
+    Returns:
+        :class:`~py_trees.behaviour.Behaviour`: the modified behaviour class
+
+    Examples:
+        .. code-block:: python
+
+           @oneshot
+           class DoOrDie(GimmeASecondChance)
+               pass
+
+        or
+
+        .. code-block:: python
+
+           do_or_die = gimme_a_second_chance(GimmeASecondChance)("Do or Die")
+    """
+    setattr(cls, "tick", _oneshot_tick(cls.tick))
+    return cls
 
 #############################
 # RunningIsFailure

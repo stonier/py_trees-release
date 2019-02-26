@@ -1,41 +1,17 @@
 Changelog
 =========
 
-0.6.7 (2019-02-13)
+
+0.5.12 (2019-02-13)
 ------------------
 [decorators] default option for collapsing decorators (resolves py_trees_ros bug)
 
-0.6.6 (2019-02-13)
-------------------
+0.5.11 (2019-02-13)
+-------------------
 [decorators] new-style decorators can be found in py_trees.decorators
 [decorators] new-style decorators now stop their running child on completion (SUCCESS||FAILURE)
 [decorators] onshot now activates upon *successful completion* (SUCCESS only), previously on *any completion* (SUCCESS||FAILURE)
 [meta] behaviours from functions can now automagically generate names
-
-0.6.5 (2018-09-19)
-------------------
-* Inverters bugfix - pick up missing feedback messages
-* Eliminate costly blackboard variable check feedback message
-
-0.6.4 (2018-09-19)
-------------------
-* Ascii tree bugfix - replace awkward newlines with spaces
-
-0.6.3 (2018-09-04)
-------------------
-* Parallels bugfix - don't send own status to running children, invalidate them instead
-
-0.6.2 (2018-08-31)
-------------------
-* Oneshot bugfix - react to priority interrupts correctly
-
-0.6.1 (2018-08-20)
-------------------
-* Oneshot bugfix - no longer permanently modifies the original class
-
-0.6.0 (2018-05-15)
-------------------
-* Python 2/3 compatibility
 
 0.5.10 (2017-06-17)
 -------------------

@@ -35,6 +35,8 @@ Perform the checks or actions you need to do in the non-composite behaviours.
 # Imports
 ##############################################################################
 
+from __future__ import absolute_import
+
 import itertools
 
 from . import common
@@ -60,8 +62,7 @@ class Composite(Behaviour):
     def __init__(self, name="", children=None, *args, **kwargs):
         super(Composite, self).__init__(name, *args, **kwargs)
         if children is not None:
-            for child in children:
-                self.add_child(child)
+            map(self.add_child, children)
         else:
             self.children = []
 
@@ -474,7 +475,7 @@ class Sequence(Composite):
         """
         self.logger.debug("%s.tick()" % self.__class__.__name__)
         if self.status != Status.RUNNING:
-            self.logger.debug("%s.tick() [!RUNNING->resetting child index]" % self.__class__.__name__)
+            self.logger.debug("%s.tick() [resetting]" % self.__class__.__name__)
             # sequence specific handling
             self.current_index = 0
             for child in self.children:
@@ -589,8 +590,7 @@ class Parallel(Composite):
         if new_status != Status.RUNNING:
             for child in self.children:
                 if child.status == Status.RUNNING:
-                    # interrupt it (exactly as if it was interrupted by a higher priority)
-                    child.stop(Status.INVALID)
+                    child.stop(new_status)
             self.stop(new_status)
         self.status = new_status
         yield self

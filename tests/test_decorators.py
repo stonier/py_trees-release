@@ -165,32 +165,6 @@ def test_running_is_failure_tree():
     print(console.bold + "\n****************************************************************************************" + console.reset)
     print(console.bold + "* Running is Failure Tree" + console.reset)
     print(console.bold + "****************************************************************************************\n" + console.reset)
-    root = py_trees.Selector(name="Root")
-    running = py_trees.meta.running_is_failure(py_trees.behaviours.Running)(name="Running")
-    failure = py_trees.meta.running_is_failure(py_trees.behaviours.Failure)(name="Failure")
-    success = py_trees.meta.running_is_failure(py_trees.behaviours.Success)(name="Success")
-    root.add_child(running)
-    root.add_child(failure)
-    root.add_child(success)
-    py_trees.display.print_ascii_tree(root)
-    visitor = py_trees.visitors.DebugVisitor()
-    py_trees.tests.tick_tree(root, 1, 1, visitor)
-
-    print("\n--------- Assertions ---------\n")
-    print("running.status == py_trees.Status.FAILURE")
-    assert(running.status == py_trees.Status.FAILURE)
-    print("failure.status == py_trees.Status.FAILURE")
-    assert(failure.status == py_trees.Status.FAILURE)
-    print("success.status == py_trees.Status.SUCCESS")
-    assert(success.status == py_trees.Status.SUCCESS)
-    print("root.status == py_trees.Status.SUCCESS")
-    assert(root.status == py_trees.Status.SUCCESS)
-
-
-def test_inverter_sequence():
-    print(console.bold + "\n****************************************************************************************" + console.reset)
-    print(console.bold + "* Inverter Sequence Tree" + console.reset)
-    print(console.bold + "****************************************************************************************\n" + console.reset)
     root = py_trees.composites.Selector(name="Root")
     running = py_trees.decorators.RunningIsFailure(
         child=py_trees.behaviours.Running()
@@ -204,7 +178,6 @@ def test_inverter_sequence():
     root.add_child(running)
     root.add_child(failure)
     root.add_child(success)
-    py_trees.display.print_ascii_tree(root)
     visitor = py_trees.visitors.DebugVisitor()
     py_trees.tests.tick_tree(root, 1, 1, visitor, print_snapshot=True)
  
@@ -217,7 +190,6 @@ def test_inverter_sequence():
     assert(success.status == py_trees.common.Status.SUCCESS)
     print("root.status == py_trees.common.Status.SUCCESS")
     assert(root.status == py_trees.common.Status.SUCCESS)
-
 
 
 def test_timeout():

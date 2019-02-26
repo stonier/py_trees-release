@@ -97,22 +97,23 @@ def _generate_ascii_tree(tree, indent=0, snapshot_information=None):
     nodes = {} if snapshot_information is None else snapshot_information.nodes
     previously_running_nodes = [] if snapshot_information is None else snapshot_information.previously_running_nodes
     running_nodes = [] if snapshot_information is None else snapshot_information.running_nodes
+
     if indent == 0:
         if tree.id in nodes:
             yield "%s [%s]" % (tree.name.replace('\n', ' '), ascii_check_mark(nodes[tree.id]))
         elif tree.id in previously_running_nodes and tree.id not in running_nodes:
-            yield "%s" % tree.name.replace('\n', ' ') + " [" + console.yellow + "-" + console.reset + "]"
+            yield "%s" % tree.name + " [" + console.yellow + "-" + console.reset + "]"
         else:
-            yield "%s" % tree.name.replace('\n', ' ')
+            yield "%s" % tree.name
     for child in tree.children:
         bullet = ascii_bullet(child)
         if child.id in nodes:
             message = "" if not child.feedback_message else " -- " + child.feedback_message
             yield "    " * indent + bullet + child.name.replace('\n', ' ') + " [%s]" % ascii_check_mark(nodes[child.id]) + message
         elif child.id in previously_running_nodes and child.id not in running_nodes:
-            yield "    " * indent + bullet + child.name.replace('\n', ' ') + " [" + console.yellow + "-" + console.reset + "]"
+            yield "    " * indent + bullet + child.name + " [" + console.yellow + "-" + console.reset + "]"
         else:
-            yield "    " * indent + bullet + child.name.replace('\n', ' ')
+            yield "    " * indent + bullet + child.name
         if child.children != []:
             for line in _generate_ascii_tree(child, indent + 1, snapshot_information):
                 yield line

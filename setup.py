@@ -8,7 +8,7 @@ install_requires = [] if os.environ.get('CATKIN_BINARY_DIR') else [
     # build
     'setuptools',
     # runtime
-    'enum34;python_version<"3.4"',
+    'enum34',
     'pydot'
 ]
 
@@ -24,10 +24,7 @@ extras_require = {} if os.environ.get('CATKIN_BINARY_DIR') else {
 # Pull in __version__
 ##############################
 
-project_dir = os.path.abspath(
-    os.path.join(
-        os.path.abspath(__file__),
-        os.pardir))
+project_dir = os.path.abspath(os.path.join(os.path.abspath(__file__), os.pardir))
 version_file = os.path.join(project_dir, 'py_trees', 'version.py')
 with open(version_file) as f:
     exec(f.read())
