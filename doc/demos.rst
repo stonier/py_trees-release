@@ -83,6 +83,22 @@ py-trees-demo-dot-graphs
    :linenos:
    :caption: py_trees/demos/dot_graphs.py
 
+.. _py-trees-demo-logging-program:
+
+py-trees-demo-logging
+---------------------
+
+.. automodule:: py_trees.demos.logging
+    :members:
+    :special-members:
+    :show-inheritance:
+    :synopsis: demo tree logging to json files
+
+.. literalinclude:: ../py_trees/demos/logging.py
+   :language: python
+   :linenos:
+   :caption: py_trees/demos/logging.py
+
 .. _py-trees-demo-selector-program:
 
 py-trees-demo-selector
@@ -130,4 +146,20 @@ py-trees-demo-tree-stewardship
    :language: python
    :linenos:
    :caption: py_trees/demos/stewardship.py
+
+.. _py-trees-demo-pick-up-where-you-left-off-program:
+
+py-trees-demo-pick-up-where-you-left-off
+----------------------------------------
+
+.. automodule:: py_trees.demos.pick_up_where_you_left_off
+    :members:
+    :special-members:
+    :show-inheritance:
+    :synopsis: demo the 'pickup where you left off' idiom
+
+.. literalinclude:: ../py_trees/demos/pick_up_where_you_left_off.py
+   :language: python
+   :linenos:
+   :caption: py_trees/demos/pick_up_where_you_left_off.py
 

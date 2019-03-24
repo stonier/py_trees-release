@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # License: BSD
-#   https://raw.githubusercontent.com/stonier/py_trees/devel/LICENSE
+#   https://raw.githubusercontent.com/splintered-reality/py_trees/devel/LICENSE
 #
 ##############################################################################
 # Documentation
@@ -83,14 +83,14 @@ class BlackboardWriter(py_trees.behaviour.Behaviour):
 
     def update(self):
         """
-        Write a dictionary to the blackboard and return :data:`~py_trees.Status.SUCCESS`.
+        Write a dictionary to the blackboard and return :data:`~py_trees.common.Status.SUCCESS`.
         """
         self.logger.debug("%s.update()" % (self.__class__.__name__))
         self.blackboard.spaghetti = {"type": "Gnocchi", "quantity": 2}
-        return py_trees.Status.SUCCESS
+        return py_trees.common.Status.SUCCESS
 
 
-def create_tree():
+def create_root():
     root = py_trees.composites.Sequence("Sequence")
     set_blackboard_variable = py_trees.blackboard.SetBlackboardVariable(name="Set Foo", variable_name="foo", variable_value="bar")
     write_blackboard_variable = BlackboardWriter(name="Writer")
@@ -111,22 +111,22 @@ def main():
     print(description())
     py_trees.logging.level = py_trees.logging.Level.DEBUG
 
-    tree = create_tree()
+    root = create_root()
 
     ####################
     # Rendering
     ####################
     if args.render:
-        py_trees.display.render_dot_tree(tree)
+        py_trees.display.render_dot_tree(root)
         sys.exit()
 
     ####################
     # Execute
     ####################
-    tree.setup(timeout=15)
+    root.setup_with_descendants()
     print("\n--------- Tick 0 ---------\n")
-    tree.tick_once()
+    root.tick_once()
     print("\n")
-    py_trees.display.print_ascii_tree(tree, show_status=True)
+    print(py_trees.display.ascii_tree(root, show_status=True))
     print("\n")
     print(py_trees.blackboard.Blackboard())

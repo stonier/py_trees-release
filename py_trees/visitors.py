@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # License: BSD
-#   https://raw.githubusercontent.com/stonier/py_trees/devel/LICENSE
+#   https://raw.githubusercontent.com/splintered-reality/py_trees/devel/LICENSE
 #
 ##############################################################################
 # Documentation
@@ -20,10 +20,6 @@ runs its own method on the behaviour to do as it wishes - logging, introspecting
 ##############################################################################
 # Imports
 ##############################################################################
-
-from . import common
-# from . import console
-# from . import syntax_highlighting
 
 ##############################################################################
 # Visitors
@@ -82,37 +78,73 @@ class DebugVisitor(VisitorBase):
 
 class SnapshotVisitor(VisitorBase):
     """
-    Visits the tree in tick-tock, recording runtime information for publishing
-    the information as a snapshot view of the tree after the iteration has
-    finished.
+    Visits the tree in tick-tock, recording the id/status of the visited set
+    of nodes. Additionally caches the last tick's visited collection for
+    comparison.
 
     Args:
         full (:obj:`bool`): flag to indicate whether it should be used to visit only traversed nodes or the entire tree
 
     Attributes:
-        nodes (dict): dictionary of behaviour id (uuid.UUID) and status (:class:`~py_trees.common.Status`) pairs
-        running_nodes([uuid.UUID]): list of id's for behaviours which were traversed in the current tick
-        previously_running_nodes([uuid.UUID]): list of id's for behaviours which were traversed in the last tick
+        visited (dict): dictionary of behaviour id (uuid.UUID) and status (:class:`~py_trees.common.Status`) pairs
+        previously_visited (dict): dictionary of behaviour id's saved from the previous tree tick
 
     .. seealso::
 
         This visitor is used with the :class:`~py_trees.trees.BehaviourTree` class to collect
-        information and :func:`~py_trees.display.ascii_tree` to display information.
+        information and :func:`~py_trees.display.generate_ascii_tree` to display information.
     """
     def __init__(self, full=False):
         super(SnapshotVisitor, self).__init__(full=full)
-        self.nodes = {}
-        self.running_nodes = []
-        self.previously_running_nodes = []
+        self.visited = {}
+        self.previously_visited = {}
 
     def initialise(self):
         """
-        Switch running to previously running and then reset all other variables. This will
+        Cache the last collection of visited nodes and reset the dictionary.
+        """
+        self.previously_visited = self.visited
+        self.visited = {}
+
+    def run(self, behaviour):
+        """
+        This method gets run as each behaviour is ticked. Catch the id and status and store it.
+
+        Args:
+            behaviour (:class:`~py_trees.behaviour.Behaviour`): behaviour that is ticking
+        """
+        self.visited[behaviour.id] = behaviour.status
+
+
+class WindsOfChangeVisitor(VisitorBase):
+    """
+    Visits the ticked part of a tree, checking off the status against the set of status
+    results recorded in the previous tick. If there has been a change, it flags it.
+    This is useful for determining when to trigger, e.g. logging.
+
+    Attributes:
+        changed (Bool): flagged if there is a difference in the visited path or :class:`~py_trees.common.Status` of any behaviour on the path
+        ticked_nodes (dict): dictionary of behaviour id (uuid.UUID) and status (:class:`~py_trees.common.Status`) pairs from the current tick
+        previously_ticked+nodes (dict): dictionary of behaviour id (uuid.UUID) and status (:class:`~py_trees.common.Status`) pairs from the previous tick
+        running_nodes([uuid.UUID]): list of id's for behaviours which were traversed in the current tick
+        previously_running_nodes([uuid.UUID]): list of id's for behaviours which were traversed in the last tick
+
+    .. seealso:: The :ref:`py-trees-demo-logging-program` program demonstrates use of this visitor to trigger logging of a tree serialisation.
+    """
+    def __init__(self):
+        super().__init__(full=False)
+        self.changed = False
+        self.ticked_nodes = {}
+        self.previously_ticked_nodes = {}
+
+    def initialise(self):
+        """
+        Switch running to previously running and then reset all other variables. This should
         get called before a tree ticks.
         """
-        self.nodes = {}
-        self.previously_running_nodes = self.running_nodes
-        self.running_nodes = []
+        self.changed = False
+        self.previously_ticked_nodes = self.ticked_nodes
+        self.ticked_nodes = {}
 
     def run(self, behaviour):
         """
@@ -122,6 +154,9 @@ class SnapshotVisitor(VisitorBase):
         Args:
             behaviour (:class:`~py_trees.behaviour.Behaviour`): behaviour that is ticking
         """
-        self.nodes[behaviour.id] = behaviour.status
-        if behaviour.status == common.Status.RUNNING:
-            self.running_nodes.append(behaviour.id)
+        self.ticked_nodes[behaviour.id] = behaviour.status
+        try:
+            if self.ticked_nodes[behaviour.id] != self.previously_ticked_nodes[behaviour.id]:
+                self.changed = True
+        except KeyError:
+            self.changed = True

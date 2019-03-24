@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # License: BSD
-#   https://raw.githubusercontent.com/stonier/py_trees/devel/LICENSE
+#   https://raw.githubusercontent.com/splintered-reality/py_trees/devel/LICENSE
 #
 ##############################################################################
 # Documentation
@@ -96,13 +96,16 @@ def post_tick_handler(snapshot_visitor, behaviour_tree):
     """
     Prints an ascii tree with the current snapshot status.
     """
-    print("\n" + py_trees.display.ascii_tree(behaviour_tree.root,
-                                             snapshot_information=snapshot_visitor))
+    print("\n" + py_trees.display.ascii_tree(
+        root=behaviour_tree.root,
+        visited=snapshot_visitor.visited,
+        previously_visited=snapshot_visitor.visited)
+    )
 
 
 def create_tree():
     every_n_success = py_trees.behaviours.SuccessEveryN("EveryN", 5)
-    sequence = py_trees.Sequence(name="Sequence")
+    sequence = py_trees.composites.Sequence(name="Sequence")
     guard = py_trees.behaviours.Success("Guard")
     periodic_success = py_trees.behaviours.Periodic("Periodic", 3)
     finisher = py_trees.behaviours.Success("Finisher")
@@ -111,7 +114,7 @@ def create_tree():
     sequence.add_child(finisher)
     sequence.blackbox_level = py_trees.common.BlackBoxLevel.COMPONENT
     idle = py_trees.behaviours.Success("Idle")
-    root = py_trees.Selector(name="Demo Tree")
+    root = py_trees.composites.Selector(name="Demo Tree")
     root.add_child(every_n_success)
     root.add_child(sequence)
     root.add_child(idle)
@@ -153,12 +156,12 @@ def main():
     # Tick Tock
     ####################
     if args.interactive:
-        unused_result = py_trees.console.read_single_keypress()
+        py_trees.console.read_single_keypress()
     while True:
         try:
             behaviour_tree.tick()
             if args.interactive:
-                unused_result = py_trees.console.read_single_keypress()
+                py_trees.console.read_single_keypress()
             else:
                 time.sleep(0.5)
         except KeyboardInterrupt:

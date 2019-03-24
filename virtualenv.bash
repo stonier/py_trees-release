@@ -70,15 +70,20 @@ install_package ()
 
 install_package virtualenvwrapper || return
 
-# To use the installed python
-VERSION="--python=/usr/bin/python"
+# To use the installed python3
+VERSION="--python=/usr/bin/python3"
 # To use a specific version
-# VERSION="--python=python2.7"
+# VERSION="--python=python3.6"
 
 if [ "${VIRTUAL_ENV}" == "" ]; then
   workon ${NAME}
-  if [ $? -ne 0 ]; then
+  result=$?
+  if [ $result -eq 1 ]; then
     mkvirtualenv ${VERSION} ${NAME}
+  fi
+  if [ $result -eq 127 ]; then
+    pretty_error "Failed to find virtualenvwrapper aliases: 1) re-log or 2) source virtualenvwrapper.sh in your shell's .rc"
+    return 1
   fi
 fi
 
@@ -95,3 +100,4 @@ echo "Leave the virtual environment with 'deactivate'"
 echo ""
 echo "I'm grooty, you should be too."
 echo ""
+

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # License: BSD
-#   https://raw.githubusercontent.com/stonier/py_trees/devel/LICENSE
+#   https://raw.githubusercontent.com/splintered-reality/py_trees/devel/LICENSE
 #
 ##############################################################################
 # Documentation
@@ -89,13 +89,17 @@ class ContextSwitch(py_trees.behaviour.Behaviour):
     """
     def __init__(self, name="ContextSwitch"):
         super(ContextSwitch, self).__init__(name)
-        self.feedback_message = "old context"
+        self.feedback_message = "no context"
 
     def initialise(self):
         """
         Backup and set a new context.
         """
         self.logger.debug("%s.initialise()[switch context]" % (self.__class__.__name__))
+        # Some actions that:
+        #   1. retrieve the current context from somewhere
+        #   2. cache the context internally
+        #   3. apply a new context
         self.feedback_message = "new context"
 
     def update(self):
@@ -103,18 +107,20 @@ class ContextSwitch(py_trees.behaviour.Behaviour):
         Just returns RUNNING while it waits for other activities to finish.
         """
         self.logger.debug("%s.update()[RUNNING][%s]" % (self.__class__.__name__, self.feedback_message))
-        return py_trees.Status.RUNNING
+        return py_trees.common.Status.RUNNING
 
     def terminate(self, new_status):
         """
         Restore the context with the previously backed up context.
         """
         self.logger.debug("%s.terminate()[%s->%s][restore context]" % (self.__class__.__name__, self.status, new_status))
-        self.feedback_message = "old context"
+        # Some actions that:
+        #   1. restore the cached context
+        self.feedback_message = "restored context"
 
 
-def create_tree():
-    root = py_trees.composites.Parallel(name="Parallel", policy=py_trees.common.ParallelPolicy.SUCCESS_ON_ONE)
+def create_root():
+    root = py_trees.composites.Parallel(name="Parallel", policy=py_trees.common.ParallelPolicy.SuccessOnOne())
     context_switch = ContextSwitch(name="Context")
     sequence = py_trees.composites.Sequence(name="Sequence")
     for job in ["Action 1", "Action 2"]:
@@ -140,25 +146,25 @@ def main():
     print(description())
     py_trees.logging.level = py_trees.logging.Level.DEBUG
 
-    tree = create_tree()
+    root = create_root()
 
     ####################
     # Rendering
     ####################
     if args.render:
-        py_trees.display.render_dot_tree(tree)
+        py_trees.display.render_dot_tree(root)
         sys.exit()
 
     ####################
     # Execute
     ####################
-    tree.setup(timeout=15)
+    root.setup_with_descendants()
     for i in range(1, 6):
         try:
             print("\n--------- Tick {0} ---------\n".format(i))
-            tree.tick_once()
+            root.tick_once()
             print("\n")
-            py_trees.display.print_ascii_tree(tree, show_status=True)
+            print("{}".format(py_trees.display.ascii_tree(root, show_status=True)))
             time.sleep(1.0)
         except KeyboardInterrupt:
             break
