@@ -36,7 +36,7 @@ tracks:
       -i :{release_inc} --os-name debian --os-not-required
     - git-bloom-generate -y rosrpm --prefix release/:{ros_distro} :{ros_distro} -i
       :{release_inc}
-    devel_branch: release/1.0.x
+    devel_branch: release/1.1.x
     last_version: 1.0.0
     name: py_trees
     patches: null
@@ -45,7 +45,7 @@ tracks:
     release_tag: :{version}
     ros_distro: crystal
     vcs_type: git
-    vcs_uri: https://github.com/stonier/py_trees.git
+    vcs_uri: https://github.com/splintered-reality/py_trees.git
     version: :{auto}
   kinetic:
     actions:
