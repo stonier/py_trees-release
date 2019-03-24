@@ -1,6 +1,6 @@
 #
 # License: BSD
-#   https://raw.githubusercontent.com/stonier/py_trees/devel/LICENSE
+#   https://raw.githubusercontent.com/splintered-reality/py_trees/devel/LICENSE
 #
 ##############################################################################
 # Documentation
@@ -16,4 +16,4 @@ setup.py and sphinx.
 ##############################################################################
 
 # When changing, Also update setup.py and package.xml
-__version__ = '1.0.0'
+__version__ = '1.1.0'

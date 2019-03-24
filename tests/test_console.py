@@ -1,23 +1,21 @@
+#!/usr/bin/env python
 #
 # License: BSD
 #   https://raw.githubusercontent.com/splintered-reality/py_trees/devel/LICENSE
 #
-##############################################################################
-# Documentation
-##############################################################################
 
-"""
-This package contains py_trees demo script code.
-"""
 ##############################################################################
 # Imports
 ##############################################################################
 
-from . import action  # noqa
-from . import blackboard  # noqa
-from . import context_switching  # noqa
-from . import dot_graphs  # noqa
-from . import lifecycle  # noqa
-from . import selector  # noqa
-from . import sequence  # noqa
-from . import stewardship  # noqa
+import py_trees
+
+
+##############################################################################
+# Tests
+##############################################################################
+
+
+def test_correct_encode():
+    assert py_trees.console.define_symbol_or_fallback(u'\u26A1', "a", "ascii") == "a"
+    assert py_trees.console.define_symbol_or_fallback(u'\u26A1', "a", "utf-8") == u'\u26A1'

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # License: BSD
-#   https://raw.githubusercontent.com/stonier/py_trees/devel/LICENSE
+#   https://raw.githubusercontent.com/splintered-reality/py_trees/devel/LICENSE
 #
 
 ##############################################################################
@@ -25,6 +25,7 @@ logger = py_trees.logging.Logger("Nosetest")
 ##############################################################################
 # Tests
 ##############################################################################
+
 
 def test_replacing_children():
     console.banner("Replacing Children")
@@ -57,6 +58,7 @@ def test_removing_children():
     parent.add_child(child)
     parent.remove_all_children()
     assert(child.parent is None)
+
 
 def test_composite_errors():
     console.banner("Timer Errors")

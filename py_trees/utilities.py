@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # License: BSD
-#   https://raw.githubusercontent.com/stonier/py_trees/devel/LICENSE
+#   https://raw.githubusercontent.com/splintered-reality/py_trees/devel/LICENSE
 #
 ##############################################################################
 # Documentation
@@ -15,8 +15,54 @@ Assorted utility functions.
 # Imports
 ##############################################################################
 
+import multiprocessing
 import os
 import re
+import traceback
+
+##############################################################################
+# Python Helpers
+##############################################################################
+
+
+def static_variables(**kwargs):
+    """
+    This is a decorator that can be used with python methods to attach
+    initialised static variables to the method.
+
+    .. code-block:: python
+
+       @static_variables(counter=0)
+       def foo():
+           foo.counter += 1
+           print("Counter: {}".format(foo.counter))
+    """
+    def decorate(func):
+        for k in kwargs:
+            setattr(func, k, kwargs[k])
+        return func
+    return decorate
+
+
+class Process(multiprocessing.Process):
+    def __init__(self, *args, **kwargs):
+        multiprocessing.Process.__init__(self, *args, **kwargs)
+        self._pconn, self._cconn = multiprocessing.Pipe()
+        self._exception = None
+
+    def run(self):
+        try:
+            multiprocessing.Process.run(self)
+            self._cconn.send(None)
+        except Exception as e:
+            tb = traceback.format_exc()
+            self._cconn.send((e, tb))
+
+    @property
+    def exception(self):
+        if self._pconn.poll():
+            self._exception = self._pconn.recv()
+        return self._exception
 
 ##############################################################################
 # System Tools
@@ -93,26 +139,3 @@ def get_fully_qualified_name(instance: object) -> str:
         return instance.__class__.__name__
     else:
         return module + '.' + instance.__class__.__name__
-
-##############################################################################
-# Python Helpers
-##############################################################################
-
-
-def static_variables(**kwargs):
-    """
-    This is a decorator that can be used with python methods to attach
-    initialised static variables to the method.
-
-    .. code-block:: python
-
-       @static_variables(counter=0)
-       def foo():
-           foo.counter += 1
-           print("Counter: {}".formta(foo.counter))
-    """
-    def decorate(func):
-        for k in kwargs:
-            setattr(func, k, kwargs[k])
-        return func
-    return decorate
