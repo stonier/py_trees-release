@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # License: BSD
-#   https://raw.githubusercontent.com/stonier/py_trees/devel/LICENSE
+#   https://raw.githubusercontent.com/splintered-reality/py_trees/devel/LICENSE
 #
 ##############################################################################
 # Documentation
@@ -30,19 +30,19 @@ An example:
 
 Decorators with very specific functionality:
 
-* :func:`py_trees.decorators.Condition`
-* :func:`py_trees.decorators.Inverter`
-* :func:`py_trees.decorators.OneShot`
-* :func:`py_trees.decorators.TimeOut`
+* :class:`py_trees.decorators.Condition`
+* :class:`py_trees.decorators.Inverter`
+* :class:`py_trees.decorators.OneShot`
+* :class:`py_trees.decorators.Timeout`
 
 And the X is Y family:
 
-* :func:`py_trees.decorators.FailureIsRunning`
-* :func:`py_trees.decorators.FailureIsSuccess`
-* :func:`py_trees.decorators.RunningIsFailure`
-* :func:`py_trees.decorators.RunningIsSuccess`
-* :func:`py_trees.decorators.SuccessIsFailure`
-* :func:`py_trees.decorators.SuccessIsRunning`
+* :class:`py_trees.decorators.FailureIsRunning`
+* :class:`py_trees.decorators.FailureIsSuccess`
+* :class:`py_trees.decorators.RunningIsFailure`
+* :class:`py_trees.decorators.RunningIsSuccess`
+* :class:`py_trees.decorators.SuccessIsFailure`
+* :class:`py_trees.decorators.SuccessIsRunning`
 
 **Decorators for Blocking Behaviours**
 
@@ -108,6 +108,7 @@ class Decorator(behaviour.Behaviour):
         self.children.append(child)
         # Give a convenient alias
         self.decorated = self.children[0]
+        self.decorated.parent = self
 
     def tick(self):
         """
@@ -153,6 +154,20 @@ class Decorator(behaviour.Behaviour):
             self.decorated.stop(common.Status.INVALID)
         self.status = new_status
 
+    def tip(self):
+        """
+        Get the *tip* of this behaviour's subtree (if it has one) after it's last
+        tick. This corresponds to the the deepest node that was running before the
+        subtree traversal reversed direction and headed back to this node.
+
+        Returns:
+            :class:`~py_trees.behaviour.Behaviour` or :obj:`None`: child behaviour, itself or :obj:`None` if its status is :data:`~py_trees.common.Status.INVALID`
+        """
+        if self.decorated.status != common.Status.INVALID:
+            return self.decorated.tip()
+        else:
+            return super().tip()
+
 ##############################################################################
 # Decorators
 ##############################################################################
@@ -187,7 +202,7 @@ class Timeout(Decorator):
         """
         Reset the feedback message and finish time on behaviour entry.
         """
-        self.finish_time = time.time() + self.duration
+        self.finish_time = time.monotonic() + self.duration
         self.feedback_message = ""
 
     def update(self):
@@ -195,16 +210,19 @@ class Timeout(Decorator):
         Terminate the child and return :data:`~py_trees.common.Status.FAILURE`
         if the timeout is exceeded.
         """
-        current_time = time.time()
-        if current_time > self.finish_time:
+        current_time = time.monotonic()
+        if self.decorated.status == common.Status.RUNNING and current_time > self.finish_time:
             self.feedback_message = "timed out"
             self.logger.debug("{}.update() {}".format(self.__class__.__name__, self.feedback_message))
             # invalidate the decorated (i.e. cancel it), could also put this logic in a terminate() method
             self.decorated.stop(common.Status.INVALID)
             return common.Status.FAILURE
-        # Don't show the time remaining, that will change the message every tick and make the tree hard to
-        # debug since it will record a continuous stream of events
-        self.feedback_message = self.decorated.feedback_message + " [timeout: {}]".format(self.finish_time)
+        if self.decorated.status == common.Status.RUNNING:
+            self.feedback_message = "time still ticking ... [remaining: {}s]".format(
+                self.finish_time - current_time
+            )
+        else:
+            self.feedback_message = "child finished before timeout triggered"
         return self.decorated.status
 
 

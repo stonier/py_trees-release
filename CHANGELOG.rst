@@ -1,10 +1,58 @@
 Release Notes
 =============
 
-Forthcoming
------------
+1.1.0 (2019-03-19)
+------------------
 
-1.0.x (2019-01-18)
+**Breaking API**
+
+* [display] print_ascii_tree -> ascii_tree, `#178 <https://github.com/splintered-reality/py_trees/pull/178>`_.
+* [display] generate_pydot_graph -> dot_graph, `#178 <https://github.com/splintered-reality/py_trees/pull/178>`_.
+* [trees] tick_tock(sleep_ms, ..) -> tick_tock(period_ms, ...),  `#182 <https://github.com/splintered-reality/py_trees/pull/182>`_.
+
+**New Features**
+
+* [trees] add missing `add_visitor` method
+* [trees] flexible setup() for children via kwargs
+* [trees] convenience method for ascii tree debugging
+* [display] highlight the tip in ascii tree snapshots
+
+**Bugfixes**
+
+* [trees] threaded timers for setup (avoids multiprocessing problems)
+* [behaviour|composites] bugfix tip behaviour, add tests
+* [display] correct first indent when non-zero in ascii_tree
+* [display] apply same formatting to root as children in ascii_tree
+
+1.0.7 (2019-xx-yy)
+------------------
+* [display] optional arguments for generate_pydot_graph
+
+1.0.6 (2019-03-06)
+------------------
+* [decorators] fix missing root feedback message in ascii graphs
+
+1.0.5 (2019-02-28)
+------------------
+* [decorators] fix timeout bug that doesn't respect a child's last tick
+
+1.0.4 (2019-02-26)
+------------------
+* [display] drop spline curves, it's buggy with graphviz 2.38
+
+1.0.3 (2019-02-13)
+------------------
+* [visitors] winds of change visitor and logging demo
+
+1.0.2 (2019-02-13)
+------------------
+* [console] fallbacks for unicode chars when (UTF-8) encoding cannot support them
+
+1.0.1 (2018-02-12)
+------------------
+* [trees] don't use multiprocess on setup if not using timeouts
+
+1.0.0 (2019-01-18)
 ------------------
 
 **Breaking API**
@@ -35,9 +83,6 @@ Forthcoming
 
 * [idioms] 'Pick Up Where You Left Off'
 * [idioms] 'OneShot'
-
-Changelog
-=========
 
 0.8.0 (2018-10-18)
 ------------------

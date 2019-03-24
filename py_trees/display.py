@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # License: BSD
-#   https://raw.githubusercontent.com/stonier/py_trees/devel/LICENSE
+#   https://raw.githubusercontent.com/splintered-reality/py_trees/devel/LICENSE
 #
 ##############################################################################
 # Documentation
@@ -12,6 +12,14 @@ Behaviour trees are significantly easier to design, monitor and debug
 with visualisations. Py Trees does provide minimal assistance to render
 trees to various simple output formats. Currently this includes dot graphs,
 strings or stdout.
+
+.. warning::
+
+   There is both disrespect for ascii and lack of recognition for unicode
+   in this file as the intention to make ascii art a first class citizen
+   in py_trees became tainted by the desire to make use of the very fine
+   looking unicode symbols underneath. If such behaviour offends, please
+   wear your peril-sensitive sunglasses when parsing or using this module.
 """
 
 ##############################################################################
@@ -32,104 +40,47 @@ from . import utilities
 # Methods
 ##############################################################################
 
+unicode_symbols = {
+    composites.Sequence: u'[-]',
+    composites.Selector: u'[o]',
+    composites.Parallel: u'[' + console.double_vertical_line + u']',
+    decorators.Decorator: u'-^-',
+    behaviour.Behaviour: u'-->',
+    common.Status.SUCCESS: console.green + console.check_mark,
+    common.Status.FAILURE: console.red + console.multiplication_x,
+    common.Status.INVALID: console.yellow + u'-',
+    common.Status.RUNNING: console.blue + u'*'
+}
 
-@utilities.static_variables(
-    type_to_unicode={
-        composites.Sequence: "[-] ",
-        composites.Selector: "[o] ",
-        composites.Parallel: "[" + u'\u2016' + "] ",
-        decorators.Decorator: "-^- ",
-        behaviour.Behaviour: "--> "
-    }
-)
-def ascii_bullet(node):
+ascii_symbols = {
+    composites.Sequence: "[-]",
+    composites.Selector: "[o]",
+    composites.Parallel: "[||]",
+    decorators.Decorator: "-^-",
+    behaviour.Behaviour: "-->",
+    common.Status.SUCCESS: console.green + 'o',
+    common.Status.FAILURE: console.red + 'x',
+    common.Status.INVALID: console.yellow + '-',
+    common.Status.RUNNING: console.blue + '*'
+}
+
+
+def ascii_tree(
+        root,
+        show_status=False,
+        visited={},
+        previously_visited={},
+        indent=0,
+     ):
     """
-    Generate a text bullet for the specified behaviour's type.
+    Graffiti your console with with ascii trees.
 
     Args:
-        node (:class:`~py_trees.behaviour.Behaviour`): convert this behaviour's type to text
-
-    Returns:
-        :obj:`str`): the text bullet
-    """
-    for behaviour_type in [composites.Sequence,
-                           composites.Selector,
-                           composites.Parallel,
-                           decorators.Decorator]:
-        if isinstance(node, behaviour_type):
-            return ascii_bullet.type_to_unicode[behaviour_type]
-    return ascii_bullet.type_to_unicode[behaviour.Behaviour]
-
-
-@utilities.static_variables(
-    status_to_unicode={
-        common.Status.SUCCESS: console.green + u'\u2713' + console.reset,
-        common.Status.FAILURE: console.red + u'\u2715' + console.reset,
-        common.Status.INVALID: console.yellow + u'-' + console.reset,
-        common.Status.RUNNING: console.blue + u'*' + console.reset
-    }
-)
-def ascii_check_mark(status):
-    """
-    Generate a text check mark for the specified status.
-
-    Args:
-        status (:class:`~py_trees.common.Status`): convert this status to text
-
-    Returns:
-        :obj:`str`): the text check mark
-    """
-    return ascii_check_mark.status_to_unicode[status]
-
-
-def _generate_ascii_tree(tree, indent=0, snapshot_information=None):
-    """
-    Generator for spinning out the ascii tree.
-
-    Args:
-        tree (:class:`~py_trees.behaviour.Behaviour`): the root of the tree, or subtree you want to show
+        root (:class:`~py_trees.behaviour.Behaviour`): the root of the tree, or subtree you want to show
         indent (:obj:`int`): the number of characters to indent the tree
-        snapshot_information (:mod:`~py_trees.visitors`): a visitor that recorded information about a traversed tree (e.g. :class:`~py_trees.visitors.SnapshotVisitor`)
-
-    Yields:
-        :obj:`str`: a string with information about a single behaviour in the tree
-    """
-
-    nodes = {} if snapshot_information is None else snapshot_information.nodes
-    previously_running_nodes = [] if snapshot_information is None else snapshot_information.previously_running_nodes
-    running_nodes = [] if snapshot_information is None else snapshot_information.running_nodes
-    if indent == 0:
-        if tree.id in nodes:
-            yield "%s [%s]" % (tree.name.replace('\n', ' '), ascii_check_mark(nodes[tree.id]))
-        elif tree.id in previously_running_nodes and tree.id not in running_nodes:
-            yield "%s" % tree.name.replace('\n', ' ') + " [" + console.yellow + "-" + console.reset + "]"
-        else:
-            yield "%s" % tree.name.replace('\n', ' ')
-    for child in tree.children:
-        bullet = ascii_bullet(child)
-        if child.id in nodes:
-            message = "" if not child.feedback_message else " -- " + child.feedback_message
-            yield "    " * indent + bullet + child.name.replace('\n', ' ') + " [%s]" % ascii_check_mark(nodes[child.id]) + message
-        elif child.id in previously_running_nodes and child.id not in running_nodes:
-            yield "    " * indent + bullet + child.name.replace('\n', ' ') + " [" + console.yellow + "-" + console.reset + "]"
-        else:
-            yield "    " * indent + bullet + child.name.replace('\n', ' ')
-        if child.children != []:
-            for line in _generate_ascii_tree(child, indent + 1, snapshot_information):
-                yield line
-
-
-def ascii_tree(tree, indent=0, snapshot_information=None):
-    """
-    Build an ascii tree representation as a string for redirecting
-    to elsewhere other than stdout. This can be the entire tree, or
-    a recorded snapshot of the tree (i.e. just the part that was traversed).
-
-    Args:
-        tree (:class:`~py_trees.behaviour.Behaviour`): the root of the tree, or subtree you want to show
-        indent (:obj:`int`): the number of characters to indent the tree
-        snapshot_information (:mod:`~py_trees.visitors`): a visitor that recorded information about a traversed tree (e.g. :class:`~py_trees.visitors.SnapshotVisitor`)
-        snapshot_information (:mod:`~py_trees.visitors`): a visitor that recorded information about a traversed tree (e.g. :class:`~py_trees.visitors.SnapshotVisitor`)
+        show_status (:obj:`bool`): always show status and feedback message (i.e. for every element, not just those visited)
+        visited (dict): dictionary of (uuid.UUID) and status (:class:`~py_trees.common.Status`) pairs for behaviours visited on the current tick
+        previously_visited (dict): dictionary of behaviour id/status pairs from the previous tree tick
 
     Returns:
         :obj:`str`: an ascii tree (i.e. in string form)
@@ -149,8 +100,13 @@ def ascii_tree(tree, indent=0, snapshot_information=None):
         .. code-block:: python
 
             def post_tick_handler(snapshot_visitor, behaviour_tree):
-                print(py_trees.display.ascii_tree(behaviour_tree.root,
-                      snapshot_information=snapshot_visitor))
+                print(
+                    py_trees.display.ascii_tree(
+                        behaviour_tree.root,
+                        visited=snapshot_visitor.visited,
+                        previously_visited=snapshot_visitor.visited
+                    )
+                )
 
             root = py_trees.composites.Sequence("Sequence")
             for action in ["Action 1", "Action 2", "Action 3"]:
@@ -166,63 +122,72 @@ def ascii_tree(tree, indent=0, snapshot_information=None):
                 functools.partial(post_tick_handler,
                                   snapshot_visitor))
             behaviour_tree.visitors.append(snapshot_visitor)
-
     """
+    symbols = unicode_symbols if console.has_unicode() else ascii_symbols
+    tip_id = root.tip().id if root.tip() else None
+
+    def get_behaviour_type(b):
+        for behaviour_type in [composites.Sequence,
+                               composites.Selector,
+                               composites.Parallel,
+                               decorators.Decorator]:
+            if isinstance(b, behaviour_type):
+                return behaviour_type
+        return behaviour.Behaviour
+
+    def generate_lines(root, internal_indent):
+        if internal_indent == indent:
+            #####################
+            # Root
+            #####################
+            if root.id == tip_id:
+                prefix = "    " * internal_indent + console.bold + symbols[get_behaviour_type(root)] + " "
+            else:
+                prefix = "    " * internal_indent + symbols[get_behaviour_type(root)] + " "
+            if show_status or root.id in visited.keys():
+                message = "" if not root.feedback_message else " -- " + root.feedback_message
+                yield prefix + "{} [{}".format(
+                    root.name.replace('\n', ' '),
+                    symbols[root.status]
+                ) + console.white + "]" + message + console.reset
+            elif (root.id in previously_visited.keys() and
+                  root.id not in visited.keys() and
+                  previously_visited[root.id] == common.Status.RUNNING):
+                yield prefix + root.name.replace('\n', ' ') + " [" + console.yellow + "-" + console.white + "]" + console.reset
+            else:
+                yield prefix + root.name.replace('\n', ' ') + console.reset
+            internal_indent += 1
+        for child in root.children:
+            #####################
+            # Children
+            #####################
+            if child.id == tip_id:
+                prefix = "    " * internal_indent + console.bold + symbols[get_behaviour_type(child)] + " "
+            else:
+                prefix = "    " * internal_indent + symbols[get_behaviour_type(child)] + " "
+            if show_status or child.id in visited.keys():
+                message = "" if not child.feedback_message else " -- " + child.feedback_message
+                yield prefix + child.name.replace('\n', ' ') + " [{}".format(symbols[child.status]) + console.white + "]" + message + console.reset
+            elif (child.id in previously_visited.keys() and
+                  child.id not in visited.keys() and
+                  previously_visited[root.id] == common.Status.RUNNING):
+                yield prefix + child.name.replace('\n', ' ') + " [" + console.yellow + "-" + console.white + "]" + console.reset
+            else:
+                yield prefix + child.name.replace('\n', ' ') + console.reset
+            if child.children != []:
+                for line in generate_lines(child, internal_indent + 1):
+                    yield line
     s = ""
-    for line in _generate_ascii_tree(tree, indent, snapshot_information):
+    for line in generate_lines(root, indent):
         s += "%s\n" % line
     return s
 
 
-def print_ascii_tree(root, indent=0, show_status=False):
-    """
-    Print the ASCII representation of an entire behaviour tree.
-
-    Args:
-        root (:class:`~py_trees.behaviour.Behaviour`): the root of the tree, or subtree you want to show
-        indent (:obj:`int`): the number of characters to indent the tree
-        show_status (:obj:`bool`): additionally show feedback message and status of every element
-
-    Examples:
-
-        Render a simple tree in ascii format to stdout.
-
-        .. image:: images/ascii_tree_simple.png
-            :width: 100px
-            :align: right
-
-        .. code-block:: python
-
-            root = py_trees.composites.Sequence("Sequence")
-            for action in ["Action 1", "Action 2", "Action 3"]:
-                b = py_trees.behaviours.Count(
-                        name=action,
-                        fail_until=0,
-                        running_until=1,
-                        success_until=10)
-                root.add_child(b)
-            py_trees.display.print_ascii_tree(root)
-
-    .. tip::
-
-        To additionally display status and feedbback message from every behaviour in the tree,
-        simply set the :obj:`show_status` flag to True.
-    """
-    class InstantSnapshot(object):
-        def __init__(self, tree):
-            self.nodes = {}
-            self.previously_running_nodes = []
-            self.running_nodes = []
-            for node in tree.iterate():
-                self.nodes[node.id] = node.status
-                self.running_nodes.append(node.id)
-            self.previously_running_nodes = self.running_nodes
-    snapshot_information = InstantSnapshot(root) if show_status else None
-    for line in _generate_ascii_tree(root, indent, snapshot_information):
-        print("%s" % line)
-
-
-def generate_pydot_graph(root, visibility_level, collapse_decorators, with_qualified_names):
+def dot_graph(
+        root: behaviour.Behaviour,
+        visibility_level: common.VisibilityLevel=common.VisibilityLevel.DETAIL,
+        collapse_decorators: bool=False,
+        with_qualified_names: bool=False):
     """
     Generate the pydot graph - this is usually the first step in
     rendering the tree to file. See also :py:func:`render_dot_tree`.
@@ -230,11 +195,18 @@ def generate_pydot_graph(root, visibility_level, collapse_decorators, with_quali
     Args:
         root (:class:`~py_trees.behaviour.Behaviour`): the root of a tree, or subtree
         visibility_level (:class`~py_trees.common.VisibilityLevel`): collapse subtrees at or under this level
-        collapse_decorators (:obj:`bool`): only show the decorator (not the child)
-        with_qualified_names: (:obj:`bool`): print the class information for each behaviour in each node
+        collapse_decorators (:obj:`bool`, optional): only show the decorator (not the child), defaults to False
+        with_qualified_names: (:obj:`bool`, optional): print the class information for each behaviour in each node, defaults to False
 
     Returns:
         pydot.Dot: graph
+
+    Examples:
+
+        .. code-block:: python
+
+            # convert the pydot graph to a string object
+            print("{}".format(py_trees.display.dot_graph(root).to_string()))
     """
     def get_node_attributes(node):
         blackbox_font_colours = {common.BlackBoxLevel.DETAIL: "dodgerblue",
@@ -273,7 +245,7 @@ def generate_pydot_graph(root, visibility_level, collapse_decorators, with_quali
     graph = pydot.Dot(graph_type='digraph')
     graph.set_name("pastafarianism")  # consider making this unique to the tree sometime, e.g. based on the root name
     # fonts: helvetica, times-bold, arial (times-roman is the default, but this helps some viewers, like kgraphviewer)
-    graph.set_graph_defaults(fontname='times-roman', splines='curved')
+    graph.set_graph_defaults(fontname='times-roman')  # splines='curved' is buggy on 16.04, but would be nice to have
     graph.set_node_defaults(fontname='times-roman')
     graph.set_edge_defaults(fontname='times-roman')
     (node_shape, node_colour, node_font_colour) = get_node_attributes(root)
@@ -320,21 +292,6 @@ def generate_pydot_graph(root, visibility_level, collapse_decorators, with_quali
     return graph
 
 
-def stringify_dot_tree(root):
-    """
-    Generate dot tree graphs and return a string representation
-    of the dot graph.
-
-    Args:
-        root (:class:`~py_trees.behaviour.Behaviour`): the root of a tree, or subtree
-
-    Returns:
-        :obj:`str`: dot graph as a string
-    """
-    graph = generate_pydot_graph(root, visibility_level=common.VisibilityLevel.DETAIL)
-    return graph.to_string()
-
-
 def render_dot_tree(root: behaviour.Behaviour,
                     visibility_level: common.VisibilityLevel=common.VisibilityLevel.DETAIL,
                     collapse_decorators: bool=False,
@@ -375,7 +332,7 @@ def render_dot_tree(root: behaviour.Behaviour,
         A good practice is to provide a command line argument for optional rendering of a program so users
         can quickly visualise what tree the program will execute.
     """
-    graph = generate_pydot_graph(root, visibility_level, collapse_decorators, with_qualified_names=with_qualified_names)
+    graph = dot_graph(root, visibility_level, collapse_decorators, with_qualified_names=with_qualified_names)
     filename_wo_extension_to_convert = root.name if name is None else name
     filename_wo_extension = utilities.get_valid_filename(filename_wo_extension_to_convert)
     filenames = {}

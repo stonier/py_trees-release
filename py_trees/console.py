@@ -1,6 +1,6 @@
 #
 # License: BSD
-#   https://raw.githubusercontent.com/stonier/py_trees/devel/LICENSE
+#   https://raw.githubusercontent.com/splintered-reality/py_trees/devel/LICENSE
 #
 
 ##############################################################################
@@ -36,11 +36,55 @@ import os
 import sys
 
 
-# python2 is raw-input, python3 is input
-try:
-    input = raw_input
-except NameError:
-    pass
+##############################################################################
+# Special Characters
+##############################################################################
+
+
+def has_unicode(encoding: str=sys.stdout.encoding) -> bool:
+    """
+    Define whether the specified encoding has unicode symbols. Usually used to check
+    if the stdout is capable or otherwise (e.g. Jenkins CI can often be configured
+    with unicode disabled).
+
+    Args:
+        encoding (:obj:`str`, optional): the encoding to check against.
+
+    Returns:
+        :obj:`bool`: true if capable, false otherwise
+    """
+    try:
+        u'\u26A1'.encode(encoding)
+    except UnicodeError:
+        return False
+    return True
+
+
+def define_symbol_or_fallback(original: str, fallback: str, encoding: str=sys.stdout.encoding):
+    """
+    Return the correct encoding according to the specified encoding. Used to
+    make sure we get an appropriate symbol, even if the shell is merely ascii as
+    is often the case on, e.g. Jenkins CI.
+
+    Args:
+        original (:obj:`str`): the unicode string (usually just a character)
+        fallback (:obj:`str`): the fallback ascii string
+        encoding (:obj:`str`, optional): the encoding to check against.
+
+    Returns:
+        :obj:`str`: either original or fallback depending on whether exceptions were thrown.
+    """
+    try:
+        original.encode(encoding)
+    except UnicodeError:
+        return fallback
+    return original
+
+
+lightning_bolt = u'\u26A1'
+double_vertical_line = u'\u2016'
+check_mark = u'\u2713'
+multiplication_x = u'\u2715'
 
 ##############################################################################
 # Keypress
@@ -73,8 +117,8 @@ def read_single_keypress():
         attrs = list(attrs_save)  # copy the stored version to update
         # iflag
         attrs[0] &= ~(termios.IGNBRK | termios.BRKINT | termios.PARMRK |
-                    termios.ISTRIP | termios.INLCR | termios. IGNCR |
-                    termios.ICRNL | termios.IXON)
+                      termios.ISTRIP | termios.INLCR | termios. IGNCR |
+                      termios.ICRNL | termios.IXON)
         # oflag
         attrs[1] &= ~termios.OPOST
         # cflag
@@ -82,7 +126,7 @@ def read_single_keypress():
         attrs[2] |= termios.CS8
         # lflag
         attrs[3] &= ~(termios.ECHONL | termios.ECHO | termios.ICANON |
-                    termios.ISIG | termios.IEXTEN)
+                      termios.ISIG | termios.IEXTEN)
         termios.tcsetattr(fd, termios.TCSANOW, attrs)
         # turn off non-blocking
         fcntl.fcntl(fd, fcntl.F_SETFL, flags_save & ~os.O_NONBLOCK)
@@ -101,7 +145,7 @@ def read_single_keypress():
         """Windows case, can't use fcntl and termios.
         Not same implementation as for Unix, requires a newline to continue.
         """
-        import msvcrt
+        import msvcrt  # noqa
         # read a single keystroke
         ret = sys.stdin.read(1)
         if ord(ret) == 3:  # CTRL-C
@@ -113,7 +157,7 @@ def read_single_keypress():
         try:
             return read_single_keypress_windows()
         except ImportError as e_windows:
-            raise ImportError("Neither unix nor windows implementations supported [{}][{}]".format(str(e_unix),str(e_windows)))
+            raise ImportError("Neither unix nor windows implementations supported [{}][{}]".format(str(e_unix), str(e_windows)))
 
 ##############################################################################
 # Methods
@@ -146,15 +190,21 @@ if has_colours:
     # reset = "\x1b[0;0m"
     reset = "\x1b[0m"
     bold = "\x1b[%sm" % '1'
+    dim = "\x1b[%sm" % '2'
+    underlined = "\x1b[%sm" % '4'
+    blink = "\x1b[%sm" % '5'
     black, red, green, yellow, blue, magenta, cyan, white = ["\x1b[%sm" % str(i) for i in range(30, 38)]
     bold_black, bold_red, bold_green, bold_yellow, bold_blue, bold_magenta, bold_cyan, bold_white = ["\x1b[%sm" % ('1;' + str(i)) for i in range(30, 38)]
 else:
     reset = ""
     bold = ""
+    dim = ""
+    underlined = ""
+    blink = ""
     black, red, green, yellow, blue, magenta, cyan, white = ["" for i in range(30, 38)]
     bold_black, bold_red, bold_green, bold_yellow, bold_blue, bold_magenta, bold_cyan, bold_white = ["" for i in range(30, 38)]
 
-colours = [bold,
+colours = [bold, dim, underlined, blink,
            black, red, green, yellow, blue, magenta, cyan, white,
            bold_black, bold_red, bold_green, bold_yellow, bold_blue, bold_magenta, bold_cyan, bold_white
            ]
@@ -269,3 +319,9 @@ if __name__ == '__main__':
     pretty_print("red\n", red)
     print("some normal text")
     print(cyan + "    Name" + reset + ": " + yellow + "Dude" + reset)
+    print("special characters are\n")
+    print("lightning_bolt: {}".format(lightning_bolt))
+    print("double_vertical_line: {}".format(double_vertical_line))
+    print("check_mark: {}".format(check_mark))
+    print("multiplication_x: {}".format(multiplication_x))
+    # print("has unicode: {}".format(has_unicode()))
