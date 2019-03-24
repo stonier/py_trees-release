@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # License: BSD
-#   https://raw.githubusercontent.com/stonier/py_trees/devel/LICENSE
+#   https://raw.githubusercontent.com/splintered-reality/py_trees/devel/LICENSE
 #
 ##############################################################################
 # Documentation
@@ -101,7 +101,10 @@ class Composite(behaviour.Behaviour):
         Returns:
             :class::`~py_trees.behaviour.Behaviour`: the tip function of the current child of this composite or None
         """
-        return self.current_child.tip() if self.current_child is not None else None
+        if self.current_child is not None:
+            return self.current_child.tip()
+        else:
+            return super().tip()
 
     ############################################
     # Children
@@ -560,9 +563,13 @@ class Parallel(Composite):
         super(Parallel, self).__init__(name, children)
         self.policy = policy
 
-    def setup(self):
+    def setup(self, **kwargs):
         """
         Detect before ticking whether the policy configuration is invalid.
+
+        Args:
+            **kwargs (:obj:`dict`): distribute arguments to this
+               behaviour and in turn, all of it's children
 
         Raises:
             RuntimeError: if the parallel's policy configuration is invalid

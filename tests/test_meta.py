@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # License: BSD
-#   https://raw.githubusercontent.com/stonier/py_trees/devel/LICENSE
+#   https://raw.githubusercontent.com/splintered-reality/py_trees/devel/LICENSE
 #
 
 ##############################################################################
@@ -22,8 +22,10 @@ logger = py_trees.logging.Logger("Nosetest")
 # Tests
 ##############################################################################
 
+
 def test_behaviour_from_function_naming():
     console.banner("Test Behaviour From Function Naming")
+
     def foo():
         return py_trees.common.Status.SUCCESS
     foo_instance = py_trees.meta.create_behaviour_from_function(foo)()

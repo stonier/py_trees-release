@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # License: BSD
-#   https://raw.githubusercontent.com/stonier/py_trees/devel/LICENSE
+#   https://raw.githubusercontent.com/splintered-reality/py_trees/devel/LICENSE
 #
 ##############################################################################
 # Imports
@@ -47,7 +47,7 @@ def test_high_priority_interrupt():
     root = py_trees.composites.Selector(name="Root")
     root.add_children([high_priority_interrupt, piwylo])
 
-    py_trees.display.print_ascii_tree(root)
+    print(py_trees.display.ascii_tree(root))
     visitor = py_trees.visitors.DebugVisitor()
     py_trees.tests.tick_tree(root, 1, 3, visitors=[visitor])
     print()

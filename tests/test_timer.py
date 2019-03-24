@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # License: BSD
-#   https://raw.githubusercontent.com/stonier/py_trees/devel/LICENSE
+#   https://raw.githubusercontent.com/splintered-reality/py_trees/devel/LICENSE
 #
 
 ##############################################################################
@@ -23,10 +23,11 @@ logger = py_trees.logging.Logger("Nosetest")
 # Tests
 ##############################################################################
 
+
 def test_timer_errors():
     console.banner("Timer Errors")
     print("__init__ raises a 'TypeError' due to invalid duration being passed")
     with nose.tools.assert_raises(TypeError) as context:
-        timer = py_trees.timers.Timer(name="Timer", duration="invalid_type")
+        unused_timer = py_trees.timers.Timer(name="Timer", duration="invalid_type")
         print("TypeError has message with substring 'duration'")
         assert("duration" in str(context.exception))

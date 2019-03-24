@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # License: BSD
-#   https://raw.githubusercontent.com/stonier/py_trees/devel/LICENSE
+#   https://raw.githubusercontent.com/splintered-reality/py_trees/devel/LICENSE
 #
 ##############################################################################
 # Documentation
@@ -95,8 +95,13 @@ def post_tick_handler(snapshot_visitor, behaviour_tree):
     """
     Prints an ascii tree with the current snapshot status.
     """
-    print("\n" + py_trees.display.ascii_tree(behaviour_tree.root,
-                                             snapshot_information=snapshot_visitor))
+    print(
+        "\n" + py_trees.display.ascii_tree(
+            root=behaviour_tree.root,
+            visited=snapshot_visitor.visited,
+            previously_visited=snapshot_visitor.previously_visited
+        )
+    )
 
 
 def create_root():

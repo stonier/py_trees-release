@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # License: BSD
-#   https://raw.githubusercontent.com/stonier/py_trees/devel/LICENSE
+#   https://raw.githubusercontent.com/splintered-reality/py_trees/devel/LICENSE
 #
 ##############################################################################
 # Documentation
@@ -31,7 +31,7 @@ def pre_tick_visitor(behaviour_tree):
     print("\n--------- Run %s ---------\n" % behaviour_tree.count)
 
 
-def tick_tree(tree,
+def tick_tree(root,
               from_tick,
               to_tick,
               *,
@@ -41,13 +41,15 @@ def tick_tree(tree,
               ):
     print("\n================== Iteration {}-{} ==================\n".format(from_tick, to_tick))
     for i in range(from_tick, to_tick + 1):
+        for visitor in visitors:
+            visitor.initialise()
         print(("\n--------- Run %s ---------\n" % i))
-        for node in tree.tick():
+        for node in root.tick():
             for visitor in visitors:
                 node.visit(visitor)
     if print_snapshot:
         print(console.green + "\nAscii Tree Snapshot" + console.reset)
-        display.print_ascii_tree(tree, show_status=True)
+        print(display.ascii_tree(root=root, show_status=True))
     if print_blackboard:
         print(str(blackboard.Blackboard()))
 
