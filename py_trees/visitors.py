@@ -49,6 +49,13 @@ class VisitorBase(object):
         """
         pass
 
+    def finalise(self):
+        """
+        Override this method if any work needs to be
+        performed after ticks (i.e. showing data).
+        """
+        pass
+
     def run(self, behaviour):
         """
         This method gets run as each behaviour is ticked. Override it to
@@ -92,7 +99,7 @@ class SnapshotVisitor(VisitorBase):
     .. seealso::
 
         This visitor is used with the :class:`~py_trees.trees.BehaviourTree` class to collect
-        information and :func:`~py_trees.display.generate_ascii_tree` to display information.
+        information and :meth:`py_trees.display.unicode_tree` to display information.
     """
     def __init__(self, full=False):
         super(SnapshotVisitor, self).__init__(full=full)
