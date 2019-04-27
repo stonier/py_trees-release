@@ -9,13 +9,13 @@
 
 """
 .. argparse::
-   :module: py_trees.demos.stewardship
+   :module: py_trees.demos.logging
    :func: command_line_argument_parser
-   :prog: py-trees-demo-tree-stewardship
+   :prog: py-trees-demo-logging
 
-.. graphviz:: dot/stewardship.dot
+.. graphviz:: dot/demo-logging.dot
 
-.. image:: images/tree_stewardship.gif
+.. image:: images/logging.gif
 """
 
 ##############################################################################
@@ -122,11 +122,11 @@ def logger(winds_of_change_visitor, behaviour_tree):
         print(console.yellow + "Logging.......................no\n" + console.reset)
 
 
-def display_ascii_tree(snapshot_visitor, behaviour_tree):
+def display_unicode_tree(snapshot_visitor, behaviour_tree):
     """
     Prints an ascii tree with the current snapshot status.
     """
-    print("\n" + py_trees.display.ascii_tree(
+    print("\n" + py_trees.display.unicode_tree(
         behaviour_tree.root,
         visited=snapshot_visitor.visited,
         previously_visited=snapshot_visitor.previously_visited)
@@ -184,7 +184,7 @@ def main():
     behaviour_tree.visitors.append(snapshot_visitor)
     behaviour_tree.visitors.append(winds_of_change_visitor)
 
-    behaviour_tree.add_post_tick_handler(functools.partial(display_ascii_tree, snapshot_visitor))
+    behaviour_tree.add_post_tick_handler(functools.partial(display_unicode_tree, snapshot_visitor))
     behaviour_tree.add_post_tick_handler(functools.partial(logger, winds_of_change_visitor))
 
     behaviour_tree.setup(timeout=15)
