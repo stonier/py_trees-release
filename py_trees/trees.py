@@ -36,7 +36,6 @@ from . import behaviour
 from . import common
 from . import composites
 from . import display
-from . import utilities
 from . import visitors
 
 CONTINUOUS_TICK_TOCK = -1
@@ -280,12 +279,13 @@ class BehaviourTree(object):
             post_tick_handler (:obj:`func`): function to execute after ticking
         """
         # pre
-        for handler in self.pre_tick_handlers:
-            handler(self)
         if pre_tick_handler is not None:
             pre_tick_handler(self)
+        for handler in self.pre_tick_handlers:
+            handler(self)
         for visitor in self.visitors:
             visitor.initialise()
+
         # tick
         for node in self.root.tick():
             for visitor in [visitor for visitor in self.visitors if not visitor.full]:
@@ -296,6 +296,8 @@ class BehaviourTree(object):
                 node.visit(visitor)
 
         # post
+        for visitor in self.visitors:
+            visitor.finalise()
         for handler in self.post_tick_handlers:
             handler(self)
         if post_tick_handler is not None:
@@ -356,31 +358,38 @@ class BehaviourTree(object):
         """
         self.interrupt_tick_tocking = True
 
-    def destroy(self):
+    def shutdown(self):
         """
-        Destroy the tree by stopping the root node.
+        Crawls across the tree calling :meth:`~py_trees.behaviour.Behaviour.shutdown`
+        on each behaviour.
+
+        Raises:
+            Exception: be ready to catch if any of the behaviours raise an exception
         """
-        self.root.stop()
+        # TODO: this method is still quite naive .. could use similar visitors and
+        # timeout mechanisms as used in setup()
+        for node in self.root.iterate():
+            node.shutdown()
 
 ##############################################################################
 # Post Tick Handlers
 ##############################################################################
 
 
-def setup_tree_ascii_art_debug(tree: BehaviourTree):
+def setup_tree_unicode_art_debug(tree: BehaviourTree):
     """
-    Convenience method for configuring a tree to paint an ascii
-    art snapshot on your console at the end of every tick.
+    Convenience method for configuring a tree to paint unicode art
+    for your tree's snapshot on your console at the end of every tick.
 
     Args:
         tree (:class:`~py_trees.trees.BehaviourTree`): the behaviour tree that has just been ticked
     """
-    def ascii_tree_post_tick_handler(
+    def unicode_tree_post_tick_handler(
         snapshot_visitor: visitors.SnapshotVisitor,
         tree: BehaviourTree
     ):
         print(
-            display.ascii_tree(
+            display.unicode_tree(
                 tree.root,
                 visited=snapshot_visitor.visited,
                 previously_visited=snapshot_visitor.previously_visited
@@ -390,7 +399,7 @@ def setup_tree_ascii_art_debug(tree: BehaviourTree):
     tree.add_visitor(snapshot_visitor)
     tree.add_post_tick_handler(
         functools.partial(
-            ascii_tree_post_tick_handler,
+            unicode_tree_post_tick_handler,
             snapshot_visitor
         )
     )

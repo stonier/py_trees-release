@@ -13,7 +13,7 @@
    :func: command_line_argument_parser
    :prog: py-trees-demo-tree-stewardship
 
-.. graphviz:: dot/stewardship.dot
+.. graphviz:: dot/demo-tree-stewardship.dot
 
 .. image:: images/tree_stewardship.gif
 """
@@ -96,7 +96,7 @@ def post_tick_handler(snapshot_visitor, behaviour_tree):
     """
     Prints an ascii tree with the current snapshot status.
     """
-    print("\n" + py_trees.display.ascii_tree(
+    print("\n" + py_trees.display.unicode_tree(
         root=behaviour_tree.root,
         visited=snapshot_visitor.visited,
         previously_visited=snapshot_visitor.visited)
