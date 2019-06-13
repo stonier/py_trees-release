@@ -1,3 +1,26 @@
+## py_trees (dashing) - 1.2.1-1
+
+The packages in the `py_trees` repository were released into the `dashing` distro by running `/usr/bin/bloom-release --track dashing --rosdistro dashing py_trees` on `Thu, 13 Jun 2019 16:49:27 -0000`
+
+The `py_trees` package was released.
+
+Version of package(s) in repository `py_trees`:
+
+- upstream repository: https://github.com/splintered-reality/py_trees.git
+- release repository: unknown
+- rosdistro version: `null`
+- old version: `null`
+- new version: `1.2.1-1`
+
+Versions of tools used:
+
+- bloom version: `0.8.0`
+- catkin_pkg version: `0.4.10`
+- rosdep version: `0.15.0`
+- rosdistro version: `0.7.2`
+- vcstools version: `0.1.40`
+
+
 ## py_trees (crystal) - 1.2.0-1
 
 The packages in the `py_trees` repository were released into the `crystal` distro by running `/usr/bin/bloom-release --edit-track --track crystal --rosdistro crystal py_trees` on `Sat, 27 Apr 2019 23:42:45 -0000`
