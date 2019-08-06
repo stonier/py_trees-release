@@ -1,6 +1,6 @@
 # Py Trees
 
-[[About](#about)][[Status](#status)][[Installation](#installation)][[Demos & Tutorials](#demos-and-tutorials)][[PyTrees-Ros Ecosystem](#pytrees-ros-ecosystem)]
+[[About](#about)][[Status](#status)][[Demos & Tutorials](#demos-and-tutorials)][[Installation](#installation)][[PyTrees-Ros Ecosystem](#pytrees-ros-ecosystem)]
 
 ----
 
@@ -13,6 +13,10 @@ PyTrees is a python implementation of behaviour trees designed to facilitate the
 * Python generators for smarter ticking over the tree graph
 * Python decorators for enabling meta behaviours
 * Render trees to dot graphs or visualise with ascii graphs on stdout
+
+## Docs and Demos
+
+[![devel][docs-devel-image]][docs-devel] [![1.2.x][docs-1.2.x-image]][docs-1.2.x] [![0.6.x][docs-0.6.x-image]][docs-0.6.x]
 
 ## Status
 
@@ -59,10 +63,6 @@ From the ROS2 ecosystem:
 ```
 $ sudo apt install ros-<rosdistro>-py-trees
 ```
-
-## Demos and Tutorials
-
-[![devel][docs-devel-image]][docs-devel] [![1.2.x][docs-1.2.x-image]][docs-1.2.x] [![0.6.x][docs-0.6.x-image]][docs-0.6.x]
 
 ## PyTrees-ROS Ecosystem
 
