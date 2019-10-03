@@ -3,7 +3,7 @@
 <package format="3">
   <name>py_trees</name>
   <!-- When updating, also update setup.py and version.py -->
-  <version>1.2.2</version>
+  <version>1.3.0</version>
   <description>
     Pythonic implementation of behaviour trees.
   </description>
@@ -30,9 +30,11 @@
 
   <test_depend>python3-nose</test_depend>
   <test_depend>python3-nose-yanc</test_depend>
-
-  <!-- Not a deb :/ -->
-  <!-- <test_depend>python3-nose-htmloutput</test_depend> -->
+  <!--           not available as a deb yet                     -->
+  <!-- note: don't confuse nose-htmloutput with nosehtmloutput, -->
+  <!--       the latter is a deb and doesn't work on bionic     -->
+  <!--        both are pypi packages, but different             -->
+  <!--  <test_depend>python3-nosehtmloutput</test_depend>       -->
 
   <export>
     <build_type>ament_python</build_type>
