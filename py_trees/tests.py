@@ -60,10 +60,17 @@ def tick_tree(root,
             for visitor in visitors:
                 node.visit(visitor)
     if print_snapshot:
-        print(console.green + "\nAscii Tree Snapshot" + console.reset)
+        print(console.green + "\nTree Snapshot" + console.reset)
         print(display.unicode_tree(root=root, show_status=True))
     if print_blackboard:
-        print(str(blackboard.Blackboard()))
+        print(display.unicode_blackboard())
+
+
+def clear_blackboard():
+    # Useful between tests
+    blackboard.Blackboard.storage = {}
+    blackboard.Blackboard.clients = {}
+    blackboard.Blackboard.metadata = {}
 
 
 def print_summary(nodes):
