@@ -15,7 +15,7 @@ tests_require = ['nose', 'pydot', 'pytest', 'flake8', 'yanc', 'nose-htmloutput']
 
 extras_require = {} if os.environ.get('AMENT_PREFIX_PATH') else {
     'test': tests_require,
-    'docs': ["Sphinx", "sphinx-argparse", "sphinx_rtd_theme", "sphinx-autodoc-annotation"],
+    'docs': ["Sphinx", "sphinx-argparse", "sphinx_rtd_theme", "sphinx-autodoc-typehints"],
     'debs': ['stdeb', 'twine']
 }
 ##############################
@@ -33,7 +33,7 @@ extras_require = {} if os.environ.get('AMENT_PREFIX_PATH') else {
 # That is the price paid for a pypi and catkin package.
 d = setup(
     name='py_trees',
-    version='1.3.0',  # also update package.xml and version.py
+    version='1.3.3',  # also update package.xml and version.py
     packages=find_packages(exclude=['tests*', 'docs*']),
     install_requires=install_requires,
     extras_require=extras_require,
