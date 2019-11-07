@@ -26,7 +26,6 @@ can also be easily used as inspiration for your own tree custodians.
 # Imports
 ##############################################################################
 
-import functools
 import os
 import signal
 import threading
@@ -69,7 +68,9 @@ def setup(root: behaviour.Behaviour,
         Exception: be ready to catch if any of the behaviours raise an exception
         RuntimeError: in case setup() times out
     """
-    _SIGNAL = signal.SIGUSR1
+    # SIGUSR1 is a better choice since it's a user defined operation, but these
+    # are not available on windows, so overload one of the standard definitions
+    _SIGNAL = signal.SIGINT
 
     def on_timer_timed_out():
         os.kill(os.getpid(), _SIGNAL)
