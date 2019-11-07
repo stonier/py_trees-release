@@ -3,6 +3,10 @@ Release Notes
 
 Forthcoming
 -----------
+* ...
+
+1.4.x (2019-11-07)
+------------------
 
 **Breaking API**
 
@@ -37,6 +41,15 @@ Forthcoming
     # create a local key 'speed' that maps to 'state_foo_speed' on the blackboard
     self.state.register_key(key="speed", access=py_trees.common.Access.WRITE)
     self.state.speed = 30.0
+
+* [blackboard] required keys and batch verification method, `#254 <https://github.com/splintered-reality/py_trees/pull/254>`_
+
+.. code-block:: python
+
+    self.blackboard = self.attach_blackboard_client(name="Foo")
+    self.blackboard.register_key(name="foo", access=py_trees.common.Access.READ, required=True)
+    # ...
+    self.verify_required_keys_exist()  # KeyError if any required keys do not yet exist on the blackboard
 
 * [visitors] ``SnapshotVisitor`` tracking blackboards on the visited path, `#250 <https://github.com/splintered-reality/py_trees/pull/250>`_
 
