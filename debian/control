@@ -1,0 +1,12 @@
+Source: ros-eloquent-py-trees
+Section: misc
+Priority: optional
+Maintainer: Daniel Stonier <d.stonier@gmail.com>
+Build-Depends: debhelper (>= 9.0.0), python3-nose, python3-nose-yanc, python3-setuptools, ros-eloquent-ros-workspace, python3-all, python3-setuptools
+Homepage: https://py-trees.readthedocs.io/en/release-1.4.x
+Standards-Version: 3.9.2
+
+Package: ros-eloquent-py-trees
+Architecture: any
+Depends: ${python3:Depends}, ${misc:Depends}, python3-pydot, ros-eloquent-ros-workspace
+Description: Pythonic implementation of behaviour trees.
