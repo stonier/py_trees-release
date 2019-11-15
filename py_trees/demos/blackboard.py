@@ -15,8 +15,12 @@
 
 .. graphviz:: dot/demo-blackboard.dot
    :align: center
+   :caption: Dot Graph
 
-.. image:: images/blackboard.gif
+.. figure:: images/blackboard_demo.png
+   :align: center
+
+   Console Screenshot
 """
 
 ##############################################################################
@@ -126,6 +130,40 @@ class BlackboardWriter(py_trees.behaviour.Behaviour):
         return py_trees.common.Status.SUCCESS
 
 
+class ParamsAndState(py_trees.behaviour.Behaviour):
+    """
+    A more esotoric use of multiple blackboards in a behaviour to represent
+    storage of parameters and state.
+    """
+    def __init__(self, name="ParamsAndState"):
+        super().__init__(name=name)
+        # namespaces can include the separator or may leave it out
+        # they can also be nested, e.g. /agent/state, /agent/parameters
+        self.parameters = self.attach_blackboard_client("Params", "parameters")
+        self.state = self.attach_blackboard_client("State", "state")
+        self.parameters.register_key(
+            key="default_speed",
+            access=py_trees.common.Access.READ
+        )
+        self.state.register_key(
+            key="current_speed",
+            access=py_trees.common.Access.WRITE
+        )
+
+    def initialise(self):
+        try:
+            self.state.current_speed = self.parameters.default_speed
+        except KeyError as e:
+            raise RuntimeError("parameter 'default_speed' not found [{}]".format(str(e)))
+
+    def update(self):
+        if self.state.current_speed > 40.0:
+            return py_trees.common.Status.SUCCESS
+        else:
+            self.state.current_speed += 1.0
+            return py_trees.common.Status.RUNNING
+
+
 def create_root():
     root = py_trees.composites.Sequence("Blackboard Demo")
     set_blackboard_variable = py_trees.behaviours.SetBlackboardVariable(
@@ -135,7 +173,13 @@ def create_root():
     check_blackboard_variable = py_trees.behaviours.CheckBlackboardVariableValue(
         name="Check Nested Foo", variable_name="nested.foo", expected_value="bar"
     )
-    root.add_children([set_blackboard_variable, write_blackboard_variable, check_blackboard_variable])
+    params_and_state = ParamsAndState()
+    root.add_children([
+        set_blackboard_variable,
+        write_blackboard_variable,
+        check_blackboard_variable,
+        params_and_state
+    ])
     return root
 
 ##############################################################################
@@ -151,9 +195,11 @@ def main():
     print(description())
     py_trees.logging.level = py_trees.logging.Level.DEBUG
     py_trees.blackboard.Blackboard.enable_activity_stream(maximum_size=100)
-    standalone_blackboard = py_trees.blackboard.Client(name="Standalone")
-    standalone_blackboard.register_key(key="dude", access=py_trees.common.Access.WRITE)
-    standalone_blackboard.dude = "Bob"
+    blackboard = py_trees.blackboard.Client(name="Configuration")
+    blackboard.register_key(key="dude", access=py_trees.common.Access.WRITE)
+    blackboard.register_key(key="/parameters/default_speed", access=py_trees.common.Access.WRITE)
+    blackboard.dude = "Bob"
+    blackboard.parameters.default_speed = 30.0
 
     root = create_root()
 
@@ -171,8 +217,8 @@ def main():
     # Execute
     ####################
     root.setup_with_descendants()
-    blackboard = py_trees.blackboard.Client(name="Unsetter")
-    blackboard.register_key(key="foo", access=py_trees.common.Access.WRITE)
+    unset_blackboard = py_trees.blackboard.Client(name="Unsetter")
+    unset_blackboard.register_key(key="foo", access=py_trees.common.Access.WRITE)
     print("\n--------- Tick 0 ---------\n")
     root.tick_once()
     print("\n")
@@ -182,5 +228,5 @@ def main():
     print("--------------------------\n")
     print(py_trees.display.unicode_blackboard(display_only_key_metadata=True))
     print("--------------------------\n")
-    blackboard.unset("foo")
+    unset_blackboard.unset("foo")
     print(py_trees.display.unicode_blackboard_activity_stream())
