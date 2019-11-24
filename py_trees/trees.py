@@ -6,7 +6,6 @@
 ##############################################################################
 # Documentation
 ##############################################################################
-from distutils.core import setup
 
 """
 While a graph of connected behaviours and composites form a tree in their own right
@@ -26,6 +25,7 @@ can also be easily used as inspiration for your own tree custodians.
 # Imports
 ##############################################################################
 
+import functools
 import os
 import signal
 import threading
@@ -70,13 +70,21 @@ def setup(root: behaviour.Behaviour,
     """
     # SIGUSR1 is a better choice since it's a user defined operation, but these
     # are not available on windows, so overload one of the standard definitions
-    _SIGNAL = signal.SIGINT
+    try:
+        _SIGNAL = signal.SIGUSR1
+    except AttributeError:  # windows...
+        # SIGINT can get you into trouble if for example, you are using a
+        # process manager that plays shenanigans with SIGINT. Nonetheless,
+        # it will work in most situations. If a windows user is running into
+        # problems, work with them to resolve it.
+        _SIGNAL = signal.SIGINT
 
     def on_timer_timed_out():
         os.kill(os.getpid(), _SIGNAL)
 
-    def signal_handler(unused_signum, unused_frame):
-        raise RuntimeError("tree setup timed out")
+    def signal_handler(unused_signum, unused_frame, original_signal_handler):
+        signal.signal(_SIGNAL, original_signal_handler)
+        raise RuntimeError("tree setup interrupted or timed out")
 
     def visited_setup():
         for node in root.iterate():
@@ -87,11 +95,18 @@ def setup(root: behaviour.Behaviour,
     if timeout == common.Duration.INFINITE:
         visited_setup()
     else:
-        signal.signal(_SIGNAL, signal_handler)
+        original_signal_handler = signal.getsignal(_SIGNAL)
+        signal.signal(
+            _SIGNAL,
+            functools.partial(
+                signal_handler,
+                original_signal_handler=original_signal_handler)
+        )
         timer = threading.Timer(interval=timeout, function=on_timer_timed_out)
         timer.start()
         visited_setup()
         timer.cancel()  # this only works if the timer is still waiting
+        signal.signal(_SIGNAL, original_signal_handler)
 
 ##############################################################################
 # Trees
