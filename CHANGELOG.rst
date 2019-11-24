@@ -5,6 +5,12 @@ Forthcoming
 -----------
 * ...
 
+2.0.2 (2019-11-24)
+------------------
+* [trees] revert to using user signals if available to avoid shenanigans with SIGINT, `#264 <https://github.com/splintered-reality/py_trees/pull/264>`_
+* [trees] play nicely, reset signal handlers after setup, `#262 <https://github.com/splintered-reality/py_trees/pull/262>`_
+* [visitors] bugfix the snapshot visitor to look for exclusive write keys as well
+
 2.0.1 (2019-11-19)
 ------------------
 * [blackboard] static methods have a namespace too (root), use absolute names, `#261 <https://github.com/splintered-reality/py_trees/pull/261>`_
