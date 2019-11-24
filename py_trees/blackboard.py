@@ -667,6 +667,7 @@ class Client(object):
             namespace: prefix to apply to key/variable name operations
             read: list of keys for which this client has read access
             write: list of keys for which this client has write access
+            exclusive: list of keys for which this client has exclusive write access
 
         Raises:
             TypeError: if the provided name is not of type str
@@ -1122,12 +1123,8 @@ class Client(object):
         Raises:
             KeyError if the key has not been previously registered
         """
-        print("DJS: Unregister Key")
-        print("DJS: Unregister Key: {}".format(key))
         key = Blackboard.absolute_name(super().__getattribute__("namespace"), key)
-        print("DJS: Unregister Key: {}".format(key))
         remapped_key = super().__getattribute__("remappings")[key]
-        print("DJS: Unregister Remapped Key: {}".format(remapped_key))
         super().__getattribute__("read").discard(key)  # doesn't throw exceptions if it not present
         super().__getattribute__("write").discard(key)
         super().__getattribute__("exclusive").discard(key)
