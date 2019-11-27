@@ -5,6 +5,10 @@ Forthcoming
 -----------
 * ...
 
+2.0.4 (2019-11-25)
+------------------
+* [display] optional show_title in unicode_blackboard_activity_stream
+
 2.0.3 (2019-11-24)
 ------------------
 * [trees] revert to using user signals if available to avoid shenanigans with SIGINT, `#264 <https://github.com/splintered-reality/py_trees/pull/264>`_
