@@ -33,7 +33,7 @@ extras_require = {} if os.environ.get('AMENT_PREFIX_PATH') else {
 # That is the price paid for a pypi and catkin package.
 d = setup(
     name='py_trees',
-    version='2.0.8',  # also update package.xml and version.py
+    version='2.0.9',  # also update package.xml and version.py
     packages=find_packages(exclude=['tests*', 'docs*']),
     install_requires=install_requires,
     extras_require=extras_require,
@@ -64,6 +64,7 @@ d = setup(
             'py-trees-demo-blackboard-namespaces = py_trees.demos.blackboard_namespaces:main',
             'py-trees-demo-blackboard-remappings = py_trees.demos.blackboard_remappings:main',
             'py-trees-demo-context-switching = py_trees.demos.context_switching:main',
+            'py-trees-demo-display-modes = py_trees.demos.display_modes:main',
             'py-trees-demo-dot-graphs = py_trees.demos.dot_graphs:main',
             'py-trees-demo-logging = py_trees.demos.logging:main',
             'py-trees-demo-pick-up-where-you-left-off = py_trees.demos.pick_up_where_you_left_off:main',
