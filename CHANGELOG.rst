@@ -5,6 +5,11 @@ Forthcoming
 -----------
 * ...
 
+2.0.10 (2020-02-27)
+-------------------
+* [trees] setup timeout error with last behaviour name included in the error message, `#279 <https://github.com/splintered-reality/py_trees/pull/279>`_
+* [blackboard] rooted variables in namespaced clients working as designed, fixed docs, `#277 <https://github.com/splintered-reality/py_trees/pull/277>`_
+
 2.0.9 (2020-02-14)
 ------------------
 * [demos] display modes demonstrating usage of various options, `#275 <https://github.com/splintered-reality/py_trees/pull/275>`_
