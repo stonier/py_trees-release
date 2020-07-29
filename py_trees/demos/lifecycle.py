@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # License: BSD
-#   https://raw.githubusercontent.com/splintered-reality/py_trees/devel/LICENSE
+#   https://raw.githubusercontent.com/stonier/py_trees/devel/LICENSE
 #
 ##############################################################################
 # Documentation
@@ -81,11 +81,12 @@ class Counter(py_trees.behaviour.Behaviour):
         super(Counter, self).__init__(name)
         self.logger.debug("%s.__init__()" % (self.__class__.__name__))
 
-    def setup(self):
+    def setup(self, unused_timeout=15):
         """
         No delayed initialisation required for this example.
         """
         self.logger.debug("%s.setup()" % (self.__class__.__name__))
+        return True
 
     def initialise(self):
         """
@@ -99,8 +100,8 @@ class Counter(py_trees.behaviour.Behaviour):
         Increment the counter and decide upon a new status result for the behaviour.
         """
         self.counter += 1
-        new_status = py_trees.common.Status.SUCCESS if self.counter == 3 else py_trees.common.Status.RUNNING
-        if new_status == py_trees.common.Status.SUCCESS:
+        new_status = py_trees.Status.SUCCESS if self.counter == 3 else py_trees.Status.RUNNING
+        if new_status == py_trees.Status.SUCCESS:
             self.feedback_message = "counting...{0} - phew, thats enough for today".format(self.counter)
         else:
             self.feedback_message = "still counting"

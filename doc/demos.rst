@@ -51,38 +51,6 @@ py-trees-demo-blackboard
    :linenos:
    :caption: py_trees/demos/blackboard.py
 
-.. _py-trees-demo-blackboard-namespaces-program:
-
-py-trees-demo-blackboard_namespaces
------------------------------------
-
-.. automodule:: py_trees.demos.blackboard_namespaces
-    :members:
-    :special-members:
-    :show-inheritance:
-    :synopsis: demo blackboard namespacing concepts
-
-.. literalinclude:: ../py_trees/demos/blackboard_namespaces.py
-   :language: python
-   :linenos:
-   :caption: py_trees/demos/blackboard_namespaces.py
-
-.. _py-trees-demo-blackboard-remappings-program:
-
-py-trees-demo-blackboard-remappings
------------------------------------
-
-.. automodule:: py_trees.demos.blackboard_remappings
-    :members:
-    :special-members:
-    :show-inheritance:
-    :synopsis: demo blackboard key remappings
-
-.. literalinclude:: ../py_trees/demos/blackboard_remappings.py
-   :language: python
-   :linenos:
-   :caption: py_trees/demos/blackboard_remappings.py
-
 .. _py-trees-demo-context-switching-program:
 
 py-trees-demo-context-switching
@@ -114,38 +82,6 @@ py-trees-demo-dot-graphs
    :language: python
    :linenos:
    :caption: py_trees/demos/dot_graphs.py
-
-.. _py-trees-demo-either-or-program:
-
-py-trees-demo-either-or
------------------------
-
-.. automodule:: py_trees.demos.either_or
-    :members:
-    :special-members:
-    :show-inheritance:
-    :synopsis: demo use of the either_or idiom
-
-.. literalinclude:: ../py_trees/demos/either_or.py
-   :language: python
-   :linenos:
-   :caption: py_trees/demos/either_or.py
-
-.. _py-trees-demo-logging-program:
-
-py-trees-demo-logging
----------------------
-
-.. automodule:: py_trees.demos.logging
-    :members:
-    :special-members:
-    :show-inheritance:
-    :synopsis: demo tree logging to json files
-
-.. literalinclude:: ../py_trees/demos/logging.py
-   :language: python
-   :linenos:
-   :caption: py_trees/demos/logging.py
 
 .. _py-trees-demo-selector-program:
 
@@ -194,20 +130,4 @@ py-trees-demo-tree-stewardship
    :language: python
    :linenos:
    :caption: py_trees/demos/stewardship.py
-
-.. _py-trees-demo-pick-up-where-you-left-off-program:
-
-py-trees-demo-pick-up-where-you-left-off
-----------------------------------------
-
-.. automodule:: py_trees.demos.pick_up_where_you_left_off
-    :members:
-    :special-members:
-    :show-inheritance:
-    :synopsis: demo the 'pickup where you left off' idiom
-
-.. literalinclude:: ../py_trees/demos/pick_up_where_you_left_off.py
-   :language: python
-   :linenos:
-   :caption: py_trees/demos/pick_up_where_you_left_off.py
 

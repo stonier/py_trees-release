@@ -18,7 +18,7 @@ help:
 	@echo "  docs      : buidl sphinx documentation"
 
 docs:
-	PY_TREES_DISABLE_COLORS=1 sphinx-build -E -b html doc doc/html
+	PY_TREES_DISABLE_COLORS=1 sphinx-build -b html doc doc/html
 
 build:
 	python setup.py build
@@ -31,7 +31,6 @@ clean:
 	-rm -rf ../*.build
 	-rm -rf *.tar.gz
 	-rm -rf *.egg-info
-	-rm -rf doc/html
 
 source_package:
 	python setup.py sdist
@@ -59,8 +58,7 @@ deb:
 #
 # Note, you probably need to register the first time.
 # You can also send it to testpypi first if you wish (see tutorial).
-
-pypi:
+pypi: 
 	python setup.py sdist bdist_wheel
 	twine upload dist/*
 

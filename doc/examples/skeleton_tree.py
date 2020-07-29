@@ -1,5 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python
 
 import py_trees
 
@@ -11,21 +10,14 @@ if __name__ == '__main__':
     low = py_trees.behaviours.Success(name="Low Priority")
     root.add_children([high, med, low])
 
-    behaviour_tree = py_trees.trees.BehaviourTree(
-        root=root
-    )
-    print(py_trees.display.unicode_tree(root=root))
-    behaviour_tree.setup(timeout=15)
-
-    def print_tree(tree):
-        print(py_trees.display.unicode_tree(root=tree.root, show_status=True))
-
+    behaviour_tree = py_trees.trees.BehaviourTree(root)
+    behaviour_tree.setup(15)
     try:
         behaviour_tree.tick_tock(
-            period_ms=500,
+            sleep_ms=500,
             number_of_iterations=py_trees.trees.CONTINUOUS_TICK_TOCK,
             pre_tick_handler=None,
-            post_tick_handler=print_tree
+            post_tick_handler=None
         )
     except KeyboardInterrupt:
         behaviour_tree.interrupt()

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # License: BSD
-#   https://raw.githubusercontent.com/splintered-reality/py_trees/devel/LICENSE
+#   https://raw.githubusercontent.com/stonier/py_trees/devel/LICENSE
 #
 ##############################################################################
 # Documentation
@@ -25,98 +25,12 @@ can also be easily used as inspiration for your own tree custodians.
 # Imports
 ##############################################################################
 
-import functools
-import os
-import signal
-import threading
 import time
 
 from . import behaviour
-from . import common
 from . import composites
-from . import display
-from . import visitors
 
 CONTINUOUS_TICK_TOCK = -1
-
-##############################################################################
-# Methods
-##############################################################################
-
-
-def setup(root: behaviour.Behaviour,
-          timeout: float=common.Duration.INFINITE,
-          visitor: visitors.VisitorBase=None,
-          **kwargs: int):
-    """
-    Crawls across a (sub)tree of behaviours
-    calling :meth:`~py_trees.behaviour.Behaviour.setup` on each behaviour.
-
-    Visitors can optionally be provided to provide a node-by-node analysis
-    on the result of each node's :meth:`~py_trees.behaviour.Behaviour.setup`
-    before the next node's :meth:`~py_trees.behaviour.Behaviour.setup` is called.
-    This is useful on trees with relatively long setup times to progressively
-    report out on the current status of the operation.
-
-    Args:
-        root: unmanaged (sub)tree root behaviour
-        timeout: time (s) to wait (use common.Duration.INFINITE to block indefinitely)
-        visitor: runnable entities on each node after it's setup
-        **kwargs: dictionary of arguments to distribute to all behaviours in the (sub) tree
-
-    Raises:
-        Exception: be ready to catch if any of the behaviours raise an exception
-        RuntimeError: in case setup() times out
-    """
-    # SIGUSR1 is a better choice since it's a user defined operation, but these
-    # are not available on windows, so overload one of the standard definitions
-    try:
-        _SIGNAL = signal.SIGUSR1
-    except AttributeError:  # windows...
-        # SIGINT can get you into trouble if for example, you are using a
-        # process manager that plays shenanigans with SIGINT. Nonetheless,
-        # it will work in most situations. If a windows user is running into
-        # problems, work with them to resolve it.
-        _SIGNAL = signal.SIGINT
-    current_behaviour_name = None
-
-    def on_timer_timed_out():
-        os.kill(os.getpid(), _SIGNAL)
-
-    def signal_handler(unused_signum, unused_frame, original_signal_handler):
-        global current_behaviour_name
-        signal.signal(_SIGNAL, original_signal_handler)
-        raise RuntimeError("tree setup interrupted or timed out [{}]".format(current_behaviour_name))
-
-    def visited_setup():
-        global current_behaviour_name
-        if visitor is not None:
-            visitor.initialise()
-        for node in root.iterate():
-            current_behaviour_name = node.name
-            node.setup(**kwargs)
-            if visitor is not None:
-                node.visit(visitor)
-        if visitor is not None:
-            visitor.finalise()
-
-    if timeout == common.Duration.INFINITE:
-        visited_setup()
-    else:
-        original_signal_handler = signal.getsignal(_SIGNAL)
-        signal.signal(
-            _SIGNAL,
-            functools.partial(
-                signal_handler,
-                original_signal_handler=original_signal_handler)
-        )
-        try:
-            timer = threading.Timer(interval=timeout, function=on_timer_timed_out)
-            timer.start()
-            visited_setup()
-        finally:
-            timer.cancel()  # this only works if the timer is still waiting
-            signal.signal(_SIGNAL, original_signal_handler)
 
 ##############################################################################
 # Trees
@@ -147,12 +61,12 @@ class BehaviourTree(object):
         post_tick_handlers ([:obj:`func`]): functions that run after the entire tree is ticked
 
     Raises:
-        TypeError: if root variable is not an instance of :class:`~py_trees.behaviour.Behaviour`
+        AssertionError: if incoming root variable is not the correct type
     """
-    def __init__(self, root: behaviour.Behaviour):
+    def __init__(self, root):
         self.count = 0
-        if not isinstance(root, behaviour.Behaviour):
-            raise TypeError("root node must be an instance of 'py_trees.behaviour.Behaviour' [{}]".format(type(root)))
+        assert root is not None, "root node must not be 'None'"
+        assert isinstance(root, behaviour.Behaviour), "root node must be an instance of or descendant of pytrees.behaviour.Behaviour"
         self.root = root
         self.visitors = []
         self.pre_tick_handlers = []
@@ -192,20 +106,6 @@ class BehaviourTree(object):
         """
         self.post_tick_handlers.append(handler)
 
-    def add_visitor(self, visitor):
-        """
-        Trees can run multiple visitors on each behaviour as they
-        tick through a tree.
-
-        Args:
-            visitor (:class:`~py_trees.visitors.VisitorBase`): sub-classed instance of a visitor
-
-        .. seealso:: :class:`~py_trees.visitors.DebugVisitor`,
-            :class:`~py_trees.visitors.SnapshotVisitor`,
-            :class:`~py_trees.visitors.DisplaySnapshotVisitor`
-        """
-        self.visitors.append(visitor)
-
     def prune_subtree(self, unique_id):
         """
         Prune a subtree given the unique id of the root of the subtree.
@@ -217,18 +117,16 @@ class BehaviourTree(object):
             :obj:`bool`: success or failure of the operation
 
         Raises:
-            RuntimeError: if unique id is the behaviour tree's root node id
+            AssertionError: if unique id is the behaviour tree's root node id
         """
-        # TODO: convert this to throwing exceptions instead
-        if self.root.id == unique_id:
-            raise RuntimeError("may not prune the root node")
+        assert self.root.id != unique_id, "may not prune the root node"
         for child in self.root.iterate():
             if child.id == unique_id:
                 parent = child.parent
                 if parent is not None:
                     parent.remove_child(child)
                     if self.tree_update_handler is not None:
-                        self.tree_update_handler()
+                        self.tree_update_handler(self.root)
                     return True
         return False
 
@@ -248,7 +146,7 @@ class BehaviourTree(object):
             :obj:`bool`: suceess or failure (parent not found) of the operation
 
         Raises:
-            TypeError: if the parent is not a :class:`~py_trees.composites.Composite`
+            AssertionError: if the parent is not a :class:`~py_trees.composites.Composite`
 
         .. todo::
 
@@ -256,14 +154,12 @@ class BehaviourTree(object):
            has its own error handling (e.g. index out of range). Could also use a different api
            that relies on the id of the sibling node it should be inserted before/after.
         """
-        # TODO: convert this to throwing exceptions instead
         for node in self.root.iterate():
             if node.id == unique_id:
-                if not isinstance(node, composites.Composite):
-                    raise TypeError("parent must be a Composite behaviour.")
+                assert isinstance(node, composites.Composite), "parent must be a Composite behaviour."
                 node.insert_child(child, index)
                 if self.tree_update_handler is not None:
-                    self.tree_update_handler()
+                    self.tree_update_handler(self.root)
                 return True
         return False
 
@@ -282,49 +178,30 @@ class BehaviourTree(object):
         Returns:
             :obj:`bool`: suceess or failure of the operation
         """
-        # TODO: convert this to throwing exceptions instead
-        if self.root.id == unique_id:
-            raise RuntimeError("may not replace the root node")
+        assert self.root.id != unique_id, "may not replace the root node"
         for child in self.root.iterate():
             if child.id == unique_id:
                 parent = child.parent
                 if parent is not None:
                     parent.replace_child(child, subtree)
                     if self.tree_update_handler is not None:
-                        self.tree_update_handler()
+                        self.tree_update_handler(self.root)
                     return True
         return False
 
-    def setup(self,
-              timeout: float=common.Duration.INFINITE,
-              visitor: visitors.VisitorBase=None,
-              **kwargs):
+    def setup(self, timeout):
         """
-        Crawls across the tree calling :meth:`~py_trees.behaviour.Behaviour.setup`
-        on each behaviour.
-
-        Visitors can optionally be provided to provide a node-by-node analysis
-        on the result of each node's :meth:`~py_trees.behaviour.Behaviour.setup`
-        before the next node's :meth:`~py_trees.behaviour.Behaviour.setup` is called.
-        This is useful on trees with relatively long setup times to progressively
-        report out on the current status of the operation.
+         Relays to calling the :meth:`~py_trees.behaviour.Behaviuor.setup` method
+         on the root behaviour. This in turn should get recursively called down through
+         the entire tree.
 
         Args:
-            timeout (:obj:`float`): time (s) to wait (use common.Duration.INFINITE to block indefinitely)
-            visitor (:class:`~py_trees.visitors.VisitorBase`): runnable entities on each node after it's setup
-            **kwargs (:obj:`dict`): distribute arguments to this
-               behaviour and in turn, all of it's children
+             timeout (:obj:`float`): time to wait (0.0 is blocking forever)
 
-        Raises:
-            Exception: be ready to catch if any of the behaviours raise an exception
-            RuntimeError: in case setup() times out
+        Return:
+            :obj:`bool`: suceess or failure of the operation
         """
-        setup(
-            root=self.root,
-            timeout=timeout,
-            visitor=visitor,
-            **kwargs
-        )
+        return self.root.setup(timeout)
 
     def tick(self, pre_tick_handler=None, post_tick_handler=None):
         """
@@ -340,13 +217,12 @@ class BehaviourTree(object):
             post_tick_handler (:obj:`func`): function to execute after ticking
         """
         # pre
-        if pre_tick_handler is not None:
-            pre_tick_handler(self)
         for handler in self.pre_tick_handlers:
             handler(self)
+        if pre_tick_handler is not None:
+            pre_tick_handler(self)
         for visitor in self.visitors:
             visitor.initialise()
-
         # tick
         for node in self.root.tick():
             for visitor in [visitor for visitor in self.visitors if not visitor.full]:
@@ -357,26 +233,15 @@ class BehaviourTree(object):
                 node.visit(visitor)
 
         # post
-        for visitor in self.visitors:
-            visitor.finalise()
         for handler in self.post_tick_handlers:
             handler(self)
         if post_tick_handler is not None:
             post_tick_handler(self)
         self.count += 1
 
-    def tick_tock(self,
-                  period_ms,
-                  number_of_iterations=CONTINUOUS_TICK_TOCK,
-                  pre_tick_handler=None,
-                  post_tick_handler=None):
+    def tick_tock(self, sleep_ms, number_of_iterations=CONTINUOUS_TICK_TOCK, pre_tick_handler=None, post_tick_handler=None):
         """
-        Tick continuously with period as specified. Depending on the implementation, the
-        period may be more or less accurate and may drift in some cases (the default
-        implementation here merely assumes zero time in tick and sleeps for this duration
-        of time and consequently, will drift).
-
-        This optionally accepts some handlers that will
+        Tick continuously with a sleep interval as specified. This optionally accepts some handlers that will
         be used for the duration of this tick tock (c.f. those added by
         :meth:`~py_trees.trees.BehaviourTree.add_pre_tick_handler` and :meth:`~py_trees.trees.BehaviourTree.add_post_tick_handler`
         which will be automatically run every time).
@@ -384,7 +249,7 @@ class BehaviourTree(object):
         The handler functions must have a single argument of type :class:`~py_trees.trees.BehaviourTree`.
 
         Args:
-            period_ms (:obj:`float`): sleep this much between ticks (milliseconds)
+            sleep_ms (:obj:`float`): sleep this much between ticks (milliseconds)
             number_of_iterations (:obj:`int`): number of iterations to tick-tock
             pre_tick_handler (:obj:`func`): function to execute before ticking
             post_tick_handler (:obj:`func`): function to execute after ticking
@@ -393,7 +258,7 @@ class BehaviourTree(object):
         while not self.interrupt_tick_tocking and (tick_tocks < number_of_iterations or number_of_iterations == CONTINUOUS_TICK_TOCK):
             self.tick(pre_tick_handler, post_tick_handler)
             try:
-                time.sleep(period_ms / 1000.0)
+                time.sleep(sleep_ms / 1000.0)
             except KeyboardInterrupt:
                 break
             tick_tocks += 1
@@ -419,15 +284,8 @@ class BehaviourTree(object):
         """
         self.interrupt_tick_tocking = True
 
-    def shutdown(self):
+    def destroy(self):
         """
-        Crawls across the tree calling :meth:`~py_trees.behaviour.Behaviour.shutdown`
-        on each behaviour.
-
-        Raises:
-            Exception: be ready to catch if any of the behaviours raise an exception
+        Destroy the tree by stopping the root node.
         """
-        # TODO: this method is still quite naive .. could use similar visitors and
-        # timeout mechanisms as used in setup()
-        for node in self.root.iterate():
-            node.shutdown()
+        self.root.stop()

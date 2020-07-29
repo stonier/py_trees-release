@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # License: BSD
-#   https://raw.githubusercontent.com/splintered-reality/py_trees/devel/LICENSE
+#   https://raw.githubusercontent.com/stonier/py_trees/devel/LICENSE
 #
 ##############################################################################
 # Documentation
@@ -71,7 +71,7 @@ def command_line_argument_parser():
     return parser
 
 
-def create_root():
+def create_tree():
     root = py_trees.composites.Selector("Selector")
     success_after_two = py_trees.behaviours.Count(name="After Two",
                                                   fail_until=2,
@@ -94,25 +94,25 @@ def main():
     print(description())
     py_trees.logging.level = py_trees.logging.Level.DEBUG
 
-    root = create_root()
+    tree = create_tree()
 
     ####################
     # Rendering
     ####################
     if args.render:
-        py_trees.display.render_dot_tree(root)
+        py_trees.display.render_dot_tree(tree)
         sys.exit()
 
     ####################
     # Execute
     ####################
-    root.setup_with_descendants()
+    tree.setup(timeout=15)
     for i in range(1, 4):
         try:
             print("\n--------- Tick {0} ---------\n".format(i))
-            root.tick_once()
+            tree.tick_once()
             print("\n")
-            print(py_trees.display.unicode_tree(root=root, show_status=True))
+            py_trees.display.print_ascii_tree(tree, show_status=True)
             time.sleep(1.0)
         except KeyboardInterrupt:
             break
