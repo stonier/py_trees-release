@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # License: BSD
-#   https://raw.githubusercontent.com/stonier/py_trees/devel/LICENSE
+#   https://raw.githubusercontent.com/splintered-reality/py_trees/devel/LICENSE
 #
 ##############################################################################
 # Documentation
@@ -18,120 +18,202 @@ strings or stdout.
 # Imports
 ##############################################################################
 
+import os
 import pydot
+import typing
+import uuid
 
 from . import behaviour
+from . import blackboard
 from . import common
 from . import composites
 from . import console
 from . import decorators
 from . import utilities
 
+##############################################################################
+# Symbols
+##############################################################################
+
+unicode_symbols = {
+    'space': ' ',
+    'left_arrow': console.left_arrow,
+    'right_arrow': console.right_arrow,
+    'left_right_arrow': console.left_right_arrow,
+    'bold': console.bold,
+    'bold_reset': console.reset,
+    composites.Sequence: u'[-]',
+    composites.Selector: u'[o]',
+    composites.Parallel: u'[' + console.double_vertical_line + u']',
+    decorators.Decorator: u'-^-',
+    behaviour.Behaviour: u'-->',
+    common.Status.SUCCESS: console.green + console.check_mark + console.reset,
+    common.Status.FAILURE: console.red + console.multiplication_x + console.reset,
+    common.Status.INVALID: console.yellow + u'-' + console.reset,
+    common.Status.RUNNING: console.blue + u'*' + console.reset
+}
+"""Symbols for a unicode, escape sequence capable console."""
+
+ascii_symbols = {
+    'space': ' ',
+    'left_arrow': '<-',
+    'right_arrow': '->',
+    'left_right_arrow': '<->',
+    'bold': console.bold,
+    'bold_reset': console.reset,
+    composites.Sequence: "[-]",
+    composites.Selector: "[o]",
+    composites.Parallel: "[||]",
+    decorators.Decorator: "-^-",
+    behaviour.Behaviour: "-->",
+    common.Status.SUCCESS: console.green + 'o' + console.reset,
+    common.Status.FAILURE: console.red + 'x' + console.reset,
+    common.Status.INVALID: console.yellow + '-' + console.reset,
+    common.Status.RUNNING: console.blue + '*' + console.reset
+}
+"""Symbols for a non-unicode, non-escape sequence capable console."""
+xhtml_symbols = {
+    'space': '<text>&#xa0;</text>',  # &nbsp; is not valid xhtml, see http://www.fileformat.info/info/unicode/char/00a0/index.htm
+    'left_arrow': '<text>&#x2190;</text>',
+    'right_arrow': '<text>&#x2192;</text>',
+    'left_right_arrow': '<text>&#x2194;</text>',
+    'bold': '<b>',
+    'bold_reset': '</b>',
+    composites.Sequence: '<text>[-]</text>',
+    composites.Selector: '<text>[o]</text>',
+    composites.Parallel: '<text style="color:green;">[&#x2016;]</text>',  # c.f. console.double_vertical_line
+    decorators.Decorator: '<text>-^-</text>',
+    behaviour.Behaviour: '<text>--></text>',
+    common.Status.SUCCESS: '<text style="color:green;">&#x2713;</text>',  # c.f. console.check_mark
+    common.Status.FAILURE: '<text style="color:red;">&#x2715;</text>',  # c.f. console.multiplication_x
+    common.Status.INVALID: '<text style="color:darkgoldenrod;">-</text>',
+    common.Status.RUNNING: '<text style="color:blue;">*</text>'
+}
+"""Symbols for embedding in html."""
 
 ##############################################################################
-# Methods
+# Trees
 ##############################################################################
 
-@utilities.static_variables(
-    type_to_unicode={
-        composites.Sequence: "[-] ",
-        composites.Selector: "[o] ",
-        composites.Parallel: "[" + u'\u2016' + "] ",
-        decorators.Decorator: "-^- ",
-        behaviour.Behaviour: "--> "
-    }
-)
-def ascii_bullet(node):
+
+def _generate_text_tree(
+        root,
+        show_only_visited=False,
+        show_status=False,
+        visited={},
+        previously_visited={},
+        indent=0,
+        symbols=None):
     """
-    Generate a text bullet for the specified behaviour's type.
+    Generate a text tree utilising the specified symbol formatter.
 
     Args:
-        node (:class:`~py_trees.behaviour.Behaviour`): convert this behaviour's type to text
+        root (:class:`~py_trees.behaviour.Behaviour`): the root of the tree, or subtree you want to show
+        show_only_visited (:obj:`bool`): show only visited behaviours
+        show_status (:obj:`bool`): always show status and feedback message (i.e. for every element,
+            not just those visited)
+        visited (dict): dictionary of (uuid.UUID) and status (:class:`~py_trees.common.Status`) pairs
+            for behaviours visited on the current tick
+        previously_visited (dict): dictionary of behaviour id/status pairs from the previous tree tick
+        indent (:obj:`int`): the number of characters to indent the tree
+        symbols (dict, optional): dictates formatting style
+            (one of :data:`py_trees.display.unicode_symbols` || :data:`py_trees.display.ascii_symbols` || :data:`py_trees.display.xhtml_symbols`),
+            defaults to unicode if stdout supports it, ascii otherwise
 
     Returns:
-        :obj:`str`): the text bullet
+        :obj:`str`: a text-based representation of the behaviour tree
+
+    .. seealso:: :meth:`py_trees.display.ascii_tree`, :meth:`py_trees.display.unicode_tree`, :meth:`py_trees.display.xhtml_tree`
     """
-    for behaviour_type in [composites.Sequence,
-                           composites.Selector,
-                           composites.Parallel,
-                           decorators.Decorator]:
-        if isinstance(node, behaviour_type):
-            return ascii_bullet.type_to_unicode[behaviour_type]
-    return ascii_bullet.type_to_unicode[behaviour.Behaviour]
+    # default to unicode if stdout supports it, ascii otherwise
+    if symbols is None:
+        symbols = unicode_symbols if console.has_unicode() else ascii_symbols
+    tip_id = root.tip().id if root.tip() else None
 
+    def get_behaviour_type(b):
+        for behaviour_type in [composites.Sequence,
+                               composites.Selector,
+                               composites.Parallel,
+                               decorators.Decorator]:
+            if isinstance(b, behaviour_type):
+                return behaviour_type
+        return behaviour.Behaviour
 
-@utilities.static_variables(
-    status_to_unicode={
-        common.Status.SUCCESS: console.green + u'\u2713' + console.reset,
-        common.Status.FAILURE: console.red + u'\u2715' + console.reset,
-        common.Status.INVALID: console.yellow + u'-' + console.reset,
-        common.Status.RUNNING: console.blue + u'*' + console.reset
-    }
-)
-def ascii_check_mark(status):
-    """
-    Generate a text check mark for the specified status.
-
-    Args:
-        status (:class:`~py_trees.common.Status`): convert this status to text
-
-    Returns:
-        :obj:`str`): the text check mark
-    """
-    return ascii_check_mark.status_to_unicode[status]
-
-
-def _generate_ascii_tree(tree, indent=0, snapshot_information=None):
-    """
-    Generator for spinning out the ascii tree.
-
-    Args:
-        tree (:class:`~py_trees.behaviour.Behaviour`): the root of the tree, or subtree you want to show
-        indent (:obj:`int`): the number of characters to indent the tree
-        snapshot_information (:mod:`~py_trees.visitors`): a visitor that recorded information about a traversed tree (e.g. :class:`~py_trees.visitors.SnapshotVisitor`)
-
-    Yields:
-        :obj:`str`: a string with information about a single behaviour in the tree
-    """
-
-    nodes = {} if snapshot_information is None else snapshot_information.nodes
-    previously_running_nodes = [] if snapshot_information is None else snapshot_information.previously_running_nodes
-    running_nodes = [] if snapshot_information is None else snapshot_information.running_nodes
-    if indent == 0:
-        if tree.id in nodes:
-            yield "%s [%s]" % (tree.name.replace('\n', ' '), ascii_check_mark(nodes[tree.id]))
-        elif tree.id in previously_running_nodes and tree.id not in running_nodes:
-            yield "%s" % tree.name.replace('\n', ' ') + " [" + console.yellow + "-" + console.reset + "]"
+    def style(s, font_weight=False):
+        """
+        Because the way the shell escape sequences reset everything, this needs to get used on any
+        single block of formatted text.
+        """
+        if font_weight:
+            return symbols['bold'] + s + symbols['bold_reset']
         else:
-            yield "%s" % tree.name.replace('\n', ' ')
-    for child in tree.children:
-        bullet = ascii_bullet(child)
-        if child.id in nodes:
-            message = "" if not child.feedback_message else " -- " + child.feedback_message
-            yield "    " * indent + bullet + child.name.replace('\n', ' ') + " [%s]" % ascii_check_mark(nodes[child.id]) + message
-        elif child.id in previously_running_nodes and child.id not in running_nodes:
-            yield "    " * indent + bullet + child.name.replace('\n', ' ') + " [" + console.yellow + "-" + console.reset + "]"
-        else:
-            yield "    " * indent + bullet + child.name.replace('\n', ' ')
-        if child.children != []:
-            for line in _generate_ascii_tree(child, indent + 1, snapshot_information):
-                yield line
+            return s
+
+    def generate_lines(root, internal_indent):
+
+        def assemble_single_line(b):
+            font_weight = True if b.id == tip_id else False
+            s = ""
+            s += symbols['space'] * 4 * internal_indent
+            s += style(symbols[get_behaviour_type(b)], font_weight)
+            s += " "
+
+            if show_status or b.id in visited.keys():
+                s += style("{} [".format(b.name.replace('\n', ' ')), font_weight)
+                s += style("{}".format(symbols[b.status]), font_weight)
+                message = "" if not b.feedback_message else " -- " + b.feedback_message
+                s += style("]" + message, font_weight)
+            elif (b.id in previously_visited.keys() and
+                  b.id not in visited.keys() and
+                  previously_visited[b.id] == common.Status.RUNNING):
+                s += style("{} [".format(b.name.replace('\n', ' ')), font_weight)
+                s += style("{}".format(symbols[b.status]), font_weight)
+                s += style("]", font_weight)
+            else:
+                s += style("{}".format(b.name.replace('\n', ' ')), font_weight)
+            return s
+
+        if internal_indent == indent:
+            # Root
+            yield assemble_single_line(root)
+            internal_indent += 1
+        for child in root.children:
+            yield assemble_single_line(child)
+            if child.children != []:
+                if not show_only_visited or child.id in visited.keys():
+                    for line in generate_lines(child, internal_indent + 1):
+                        yield line
+                else:
+                    yield "{}...".format(symbols['space'] * 4 * (internal_indent + 1))
+    s = ""
+    for line in generate_lines(root, indent):
+        if line:
+            s += "%s\n" % line
+    return s
 
 
-def ascii_tree(tree, indent=0, snapshot_information=None):
+def ascii_tree(
+        root,
+        show_only_visited=False,
+        show_status=False,
+        visited={},
+        previously_visited={},
+        indent=0):
     """
-    Build an ascii tree representation as a string for redirecting
-    to elsewhere other than stdout. This can be the entire tree, or
-    a recorded snapshot of the tree (i.e. just the part that was traversed).
+    Graffiti your console with ascii art for your trees.
 
     Args:
-        tree (:class:`~py_trees.behaviour.Behaviour`): the root of the tree, or subtree you want to show
+        root (:class:`~py_trees.behaviour.Behaviour`): the root of the tree, or subtree you want to show
+        show_only_visited (:obj:`bool`) : show only visited behaviours
+        show_status (:obj:`bool`): always show status and feedback message (i.e. for every element, not just those visited)
+        visited (dict): dictionary of (uuid.UUID) and status (:class:`~py_trees.common.Status`) pairs for behaviours visited on the current tick
+        previously_visited (dict): dictionary of behaviour id/status pairs from the previous tree tick
         indent (:obj:`int`): the number of characters to indent the tree
-        snapshot_information (:mod:`~py_trees.visitors`): a visitor that recorded information about a traversed tree (e.g. :class:`~py_trees.visitors.SnapshotVisitor`)
-        snapshot_information (:mod:`~py_trees.visitors`): a visitor that recorded information about a traversed tree (e.g. :class:`~py_trees.visitors.SnapshotVisitor`)
 
     Returns:
         :obj:`str`: an ascii tree (i.e. in string form)
+
+    .. seealso:: :meth:`py_trees.display.xhtml_tree`, :meth:`py_trees.display.unicode_tree`
 
     Examples:
 
@@ -148,8 +230,13 @@ def ascii_tree(tree, indent=0, snapshot_information=None):
         .. code-block:: python
 
             def post_tick_handler(snapshot_visitor, behaviour_tree):
-                print(py_trees.display.ascii_tree(behaviour_tree.root,
-                      snapshot_information=snapshot_visitor))
+                print(
+                    py_trees.display.unicode_tree(
+                        behaviour_tree.root,
+                        visited=snapshot_visitor.visited,
+                        previously_visited=snapshot_visitor.visited
+                    )
+                )
 
             root = py_trees.composites.Sequence("Sequence")
             for action in ["Action 1", "Action 2", "Action 3"]:
@@ -165,83 +252,140 @@ def ascii_tree(tree, indent=0, snapshot_information=None):
                 functools.partial(post_tick_handler,
                                   snapshot_visitor))
             behaviour_tree.visitors.append(snapshot_visitor)
-
     """
-    s = ""
-    for line in _generate_ascii_tree(tree, indent, snapshot_information):
-        s += "%s\n" % line
-    return s
+    lines = _generate_text_tree(
+        root,
+        show_only_visited,
+        show_status,
+        visited,
+        previously_visited,
+        indent,
+        symbols=ascii_symbols
+    )
+    return lines
 
 
-def print_ascii_tree(root, indent=0, show_status=False):
+def unicode_tree(
+        root,
+        show_only_visited=False,
+        show_status=False,
+        visited={},
+        previously_visited={},
+        indent=0):
     """
-    Print the ASCII representation of an entire behaviour tree.
+    Graffiti your console with unicode art for your trees.
 
     Args:
         root (:class:`~py_trees.behaviour.Behaviour`): the root of the tree, or subtree you want to show
+        show_only_visited (:obj:`bool`) : show only visited behaviours
+        show_status (:obj:`bool`): always show status and feedback message (i.e. for every element, not just those visited)
+        visited (dict): dictionary of (uuid.UUID) and status (:class:`~py_trees.common.Status`) pairs for behaviours visited on the current tick
+        previously_visited (dict): dictionary of behaviour id/status pairs from the previous tree tick
         indent (:obj:`int`): the number of characters to indent the tree
-        show_status (:obj:`bool`): additionally show feedback message and status of every element
+
+    Returns:
+        :obj:`str`: a unicode tree (i.e. in string form)
+
+    .. seealso:: :meth:`py_trees.display.ascii_tree`, :meth:`py_trees.display.xhtml_tree`
+
+    """
+    lines = _generate_text_tree(
+        root,
+        show_only_visited,
+        show_status,
+        visited,
+        previously_visited,
+        indent,
+        symbols=ascii_symbols
+    )
+    return lines
+
+
+def xhtml_tree(
+        root,
+        show_only_visited=False,
+        show_status=False,
+        visited={},
+        previously_visited={},
+        indent=0):
+    """
+    Paint your tree on an xhtml snippet.
+
+    Args:
+        root (:class:`~py_trees.behaviour.Behaviour`): the root of the tree, or subtree you want to show
+        show_only_visited (:obj:`bool`) : show only visited behaviours
+        show_status (:obj:`bool`): always show status and feedback message (i.e. for every element, not just those visited)
+        visited (dict): dictionary of (uuid.UUID) and status (:class:`~py_trees.common.Status`) pairs for behaviours visited on the current tick
+        previously_visited (dict): dictionary of behaviour id/status pairs from the previous tree tick
+        indent (:obj:`int`): the number of characters to indent the tree
+
+    Returns:
+        :obj:`str`: an ascii tree (i.e. as a xhtml snippet)
+
+    .. seealso:: :meth:`py_trees.display.ascii_tree`, :meth:`py_trees.display.unicode_tree`
 
     Examples:
 
-        Render a simple tree in ascii format to stdout.
+    .. code-block:: python
 
-        .. image:: images/ascii_tree_simple.png
-            :width: 100px
-            :align: right
+        import py_trees
+        a = py_trees.behaviours.Success()
+        b = py_trees.behaviours.Success()
+        c = c = py_trees.composites.Sequence(children=[a, b])
+        c.tick_once()
 
-        .. code-block:: python
-
-            root = py_trees.composites.Sequence("Sequence")
-            for action in ["Action 1", "Action 2", "Action 3"]:
-                b = py_trees.behaviours.Count(
-                        name=action,
-                        fail_until=0,
-                        running_until=1,
-                        success_until=10)
-                root.add_child(b)
-            py_trees.display.print_ascii_tree(root)
-
-    .. tip::
-
-        To additionally display status and feedbback message from every behaviour in the tree,
-        simply set the :obj:`show_status` flag to True.
+        f = open('testies.html', 'w')
+        f.write('<html><head><title>Foo</title><body>')
+        f.write(py_trees.display.xhtml_tree(c, show_status=True))
+        f.write("</body></html>")
     """
-    class InstantSnapshot(object):
-        def __init__(self, tree):
-            self.nodes = {}
-            self.previously_running_nodes = []
-            self.running_nodes = []
-            for node in tree.iterate():
-                self.nodes[node.id] = node.status
-                self.running_nodes.append(node.id)
-            self.previously_running_nodes = self.running_nodes
-    snapshot_information = InstantSnapshot(root) if show_status else None
-    for line in _generate_ascii_tree(root, indent, snapshot_information):
-        print("%s" % line)
+    lines = _generate_text_tree(
+        root,
+        show_only_visited,
+        show_status,
+        visited,
+        previously_visited,
+        indent,
+        symbols=xhtml_symbols
+    )
+    lines = lines.replace("\n", "<br/>\n")
+    return "<code>\n" + lines + "</code>"
 
 
-def generate_pydot_graph(root, visibility_level, collapse_decorators=False):
+def dot_tree(
+        root: behaviour.Behaviour,
+        visibility_level: common.VisibilityLevel=common.VisibilityLevel.DETAIL,
+        collapse_decorators: bool=False,
+        with_blackboard_variables: bool=False,
+        with_qualified_names: bool=False):
     """
-    Generate the pydot graph - this is usually the first step in
-    rendering the tree to file. See also :py:func:`render_dot_tree`.
+    Paint your tree on a pydot graph.
+
+    .. seealso:: :py:func:`render_dot_tree`.
 
     Args:
         root (:class:`~py_trees.behaviour.Behaviour`): the root of a tree, or subtree
-        visibility_level (:class`~py_trees.common.VisibilityLevel`): collapse subtrees at or under this level
-        collapse_decorators (:obj:`bool`): only show the decorator (not the child)
+        visibility_level (optional): collapse subtrees at or under this level
+        collapse_decorators (optional): only show the decorator (not the child), defaults to False
+        with_blackboard_variables (optional): add nodes for the blackboard variables
+        with_qualified_names (optional): print the class information for each behaviour in each node, defaults to False
 
     Returns:
         pydot.Dot: graph
+
+    Examples:
+
+        .. code-block:: python
+
+            # convert the pydot graph to a string object
+            print("{}".format(py_trees.display.dot_graph(root).to_string()))
     """
-    def get_node_attributes(node, visibility_level):
+    def get_node_attributes(node):
         blackbox_font_colours = {common.BlackBoxLevel.DETAIL: "dodgerblue",
                                  common.BlackBoxLevel.COMPONENT: "lawngreen",
                                  common.BlackBoxLevel.BIG_PICTURE: "white"
                                  }
-        if isinstance(node, composites.Chooser):
-            attributes = ('doubleoctagon', 'cyan', 'black')  # octagon
-        elif isinstance(node, composites.Selector):
+        if isinstance(node, composites.Selector):
             attributes = ('octagon', 'cyan', 'black')  # octagon
         elif isinstance(node, composites.Sequence):
             attributes = ('box', 'orange', 'black')
@@ -251,71 +395,208 @@ def generate_pydot_graph(root, visibility_level, collapse_decorators=False):
             attributes = ('ellipse', 'ghostwhite', 'black')
         else:
             attributes = ('ellipse', 'gray', 'black')
-        if node.blackbox_level != common.BlackBoxLevel.NOT_A_BLACKBOX:
-            attributes = (attributes[0], 'gray20', blackbox_font_colours[node.blackbox_level])
+        try:
+            if node.blackbox_level != common.BlackBoxLevel.NOT_A_BLACKBOX:
+                attributes = (attributes[0], 'gray20', blackbox_font_colours[node.blackbox_level])
+        except AttributeError:
+            # it's a blackboard client, not a behaviour, just pass
+            pass
         return attributes
 
-    fontsize = 11
-    graph = pydot.Dot(graph_type='digraph')
-    graph.set_name(root.name.lower().replace(" ", "_"))
+    def get_node_label(node_name, behaviour):
+        """
+        This extracts a more detailed string (when applicable) to append to
+        that which will be used for the node name.
+        """
+        node_label = node_name
+        if behaviour.verbose_info_string():
+            node_label += "\n{}".format(behaviour.verbose_info_string())
+        if with_qualified_names:
+            node_label += "\n({})".format(utilities.get_fully_qualified_name(behaviour))
+        return node_label
+
+    fontsize = 9
+    blackboard_colour = "blue"  # "dimgray"
+    graph = pydot.Dot(graph_type='digraph', ordering="out")
+    graph.set_name("pastafarianism")  # consider making this unique to the tree sometime, e.g. based on the root name
     # fonts: helvetica, times-bold, arial (times-roman is the default, but this helps some viewers, like kgraphviewer)
-    graph.set_graph_defaults(fontname='times-roman')
+    graph.set_graph_defaults(fontname='times-roman')  # splines='curved' is buggy on 16.04, but would be nice to have
     graph.set_node_defaults(fontname='times-roman')
     graph.set_edge_defaults(fontname='times-roman')
-    (node_shape, node_colour, node_font_colour) = get_node_attributes(root, visibility_level)
-    node_root = pydot.Node(root.name, shape=node_shape, style="filled", fillcolor=node_colour, fontsize=fontsize, fontcolor=node_font_colour)
+    (node_shape, node_colour, node_font_colour) = get_node_attributes(root)
+    node_root = pydot.Node(
+        root.name,
+        label=get_node_label(root.name, root),
+        shape=node_shape,
+        style="filled",
+        fillcolor=node_colour,
+        fontsize=fontsize,
+        fontcolor=node_font_colour,
+    )
     graph.add_node(node_root)
-    names = [root.name]
+    behaviour_id_name_map = {root.id: root.name}
 
-    def add_edges(root, root_dot_name, visibility_level, collapse_decorators):
+    def add_children_and_edges(root, root_node, root_dot_name, visibility_level, collapse_decorators):
         if isinstance(root, decorators.Decorator) and collapse_decorators:
             return
         if visibility_level < root.blackbox_level:
+            node_names = []
             for c in root.children:
-                (node_shape, node_colour, node_font_colour) = get_node_attributes(c, visibility_level)
-                proposed_dot_name = c.name
-                while proposed_dot_name in names:
-                    proposed_dot_name = proposed_dot_name + "*"
-                names.append(proposed_dot_name)
-                node = pydot.Node(proposed_dot_name, shape=node_shape, style="filled", fillcolor=node_colour, fontsize=fontsize, fontcolor=node_font_colour)
+                (node_shape, node_colour, node_font_colour) = get_node_attributes(c)
+                node_name = c.name
+                while node_name in behaviour_id_name_map.values():
+                    node_name += "*"
+                behaviour_id_name_map[c.id] = node_name
+                # Node attributes can be found on page 5 of
+                #    https://graphviz.gitlab.io/_pages/pdf/dot.1.pdf
+                # Attributes that may be useful: tooltip, xlabel
+                node = pydot.Node(
+                    name=node_name,
+                    label=get_node_label(node_name, c),
+                    shape=node_shape,
+                    style="filled",
+                    fillcolor=node_colour,
+                    fontsize=fontsize,
+                    fontcolor=node_font_colour,
+                )
+                node_names.append(node_name)
                 graph.add_node(node)
-                edge = pydot.Edge(root_dot_name, proposed_dot_name)
+                edge = pydot.Edge(root_dot_name, node_name)
                 graph.add_edge(edge)
                 if c.children != []:
-                    add_edges(c, proposed_dot_name, visibility_level, collapse_decorators)
+                    add_children_and_edges(c, node, node_name, visibility_level, collapse_decorators)
 
-    add_edges(root, root.name, visibility_level, collapse_decorators)
+    add_children_and_edges(root, node_root, root.name, visibility_level, collapse_decorators)
+
+    def create_blackboard_client_node(blackboard_client: blackboard.Blackboard):
+        return pydot.Node(
+            name=blackboard_client.name,
+            label=blackboard_client.name,
+            shape="ellipse",
+            style="filled",
+            color=blackboard_colour,
+            fillcolor="gray",
+            fontsize=fontsize - 2,
+            fontcolor=blackboard_colour,
+        )
+
+    def add_blackboard_nodes(blackboard_id_name_map: typing.Dict[uuid.UUID, str]):
+        data = blackboard.Blackboard.storage
+        metadata = blackboard.Blackboard.metadata
+        clients = blackboard.Blackboard.clients
+        # add client (that are not behaviour) nodes
+        subgraph = pydot.Subgraph(
+            graph_name="Blackboard",
+            id="Blackboard",
+            label="Blackboard",
+            rank="sink",
+        )
+        blackboard_keys = pydot.Node(
+            "BlackboardKeys",
+            label="Keys",
+            shape='box'
+        )
+        root_dummy_edge = pydot.Edge(
+            root.name,
+            "BlackboardKeys",
+            color="magenta",
+            style="invis",
+            constraint=True,
+        )
+        subgraph.add_node(blackboard_keys)
+        graph.add_edge(root_dummy_edge)
+
+        for unique_identifier, client in clients.items():
+            if unique_identifier not in blackboard_id_name_map:
+                subgraph.add_node(
+                    create_blackboard_client_node(client)
+                )
+        # add key nodes
+        for key in blackboard.Blackboard.keys():
+            try:
+                value = utilities.truncate(str(data[key]), 20)
+                label = key + ": " + "{}".format(value)
+            except KeyError:
+                label = key + ": " + "-"
+            blackboard_node = pydot.Node(
+                key,
+                label=label,
+                shape='box',
+                style="filled",
+                color=blackboard_colour,
+                fillcolor='white',
+                fontsize=fontsize - 1,
+                fontcolor=blackboard_colour,
+                width=0, height=0, fixedsize=False,  # only big enough to fit text
+            )
+            subgraph.add_node(blackboard_node)
+            for unique_identifier in metadata[key].read:
+                try:
+                    edge = pydot.Edge(
+                        blackboard_node,
+                        blackboard_id_name_map[unique_identifier],
+                        color="green",
+                        constraint=False,
+                        weight=0,
+                    )
+                except KeyError:
+                    edge = pydot.Edge(
+                        blackboard_node,
+                        clients[unique_identifier].__getattribute__("name"),
+                        color="green",
+                        constraint=False,
+                        weight=0,
+                    )
+                graph.add_edge(edge)
+            for unique_identifier in metadata[key].write:
+                try:
+                    edge = pydot.Edge(
+                        blackboard_id_name_map[unique_identifier],
+                        blackboard_node,
+                        color=blackboard_colour,
+                        constraint=False,
+                        weight=0,
+                    )
+                except KeyError:
+                    edge = pydot.Edge(
+                        clients[unique_identifier].__getattribute__("name"),
+                        blackboard_node,
+                        color=blackboard_colour,
+                        constraint=False,
+                        weight=0,
+                    )
+                graph.add_edge(edge)
+        graph.add_subgraph(subgraph)
+
+    if with_blackboard_variables:
+        blackboard_id_name_map = {}
+        for b in root.iterate():
+            for bb in b.blackboards:
+                blackboard_id_name_map[bb.id()] = behaviour_id_name_map[b.id]
+        add_blackboard_nodes(blackboard_id_name_map)
+
     return graph
 
 
-def stringify_dot_tree(root):
-    """
-    Generate dot tree graphs and return a string representation
-    of the dot graph.
-
-    Args:
-        root (:class:`~py_trees.behaviour.Behaviour`): the root of a tree, or subtree
-
-    Returns:
-        :obj:`str`: dot graph as a string
-    """
-    graph = generate_pydot_graph(root, visibility_level=common.VisibilityLevel.DETAIL)
-    return graph.to_string()
-
-
-def render_dot_tree(root,
-                    visibility_level=common.VisibilityLevel.DETAIL,
-                    collapse_decorators=False,
-                    name=None):
+def render_dot_tree(root: behaviour.Behaviour,
+                    visibility_level: common.VisibilityLevel=common.VisibilityLevel.DETAIL,
+                    collapse_decorators: bool=False,
+                    name: str=None,
+                    target_directory: str=os.getcwd(),
+                    with_blackboard_variables: bool=False,
+                    with_qualified_names: bool=False):
     """
     Render the dot tree to .dot, .svg, .png. files in the current
     working directory. These will be named with the root behaviour name.
 
     Args:
-        root (:class:`~py_trees.behaviour.Behaviour`): the root of a tree, or subtree
-        visibility_level (:class`~py_trees.common.VisibilityLevel`): collapse subtrees at or under this level
-        collapse_decorators (:obj:`bool`): only show the decorator (not the child)
-        name (:obj:`str`): name to use for the created files (defaults to the root behaviour name)
+        root: the root of a tree, or subtree
+        visibility_level: collapse subtrees at or under this level
+        collapse_decorators: only show the decorator (not the child)
+        name: name to use for the created files (defaults to the root behaviour name)
+        target_directory: default is to use the current working directory, set this to redirect elsewhere
+        with_blackboard_variables: add nodes for the blackboard variables
+        with_qualified_names: print the class names of each behaviour in the dot node
 
     Example:
 
@@ -339,9 +620,327 @@ def render_dot_tree(root,
         A good practice is to provide a command line argument for optional rendering of a program so users
         can quickly visualise what tree the program will execute.
     """
-    graph = generate_pydot_graph(root, visibility_level, collapse_decorators)
-    filename_wo_extension = root.name.lower().replace(" ", "_") if name is None else name
-    print("Writing %s.dot/svg/png" % filename_wo_extension)
-    graph.write(filename_wo_extension + '.dot')
-    graph.write_png(filename_wo_extension + '.png')
-    graph.write_svg(filename_wo_extension + '.svg')
+    graph = dot_tree(
+        root, visibility_level, collapse_decorators,
+        with_blackboard_variables=with_blackboard_variables,
+        with_qualified_names=with_qualified_names)
+    filename_wo_extension_to_convert = root.name if name is None else name
+    filename_wo_extension = utilities.get_valid_filename(filename_wo_extension_to_convert)
+    filenames = {}
+    for extension, writer in {"dot": graph.write, "png": graph.write_png, "svg": graph.write_svg}.items():
+        filename = filename_wo_extension + '.' + extension
+        pathname = os.path.join(target_directory, filename)
+        print("Writing {}".format(pathname))
+        writer(pathname)
+        filenames[extension] = pathname
+    return filenames
+
+##############################################################################
+# Blackboards
+##############################################################################
+
+
+def _generate_text_blackboard(
+        key_filter: typing.Union[typing.Set[str], typing.List[str]]=None,
+        regex_filter: str=None,
+        client_filter: typing.Union[typing.Set[uuid.UUID], typing.List[uuid.UUID]]=None,
+        keys_to_highlight: typing.List[str]=[],
+        display_only_key_metadata: bool=False,
+        indent: int=0,
+        symbols: typing.Dict[str, str]=None) -> str:
+    """
+    Generate a text blackboard.
+
+    Args:
+        key_filter: filter on a set/list of blackboard keys
+        regex_filter: filter on a python regex str
+        client_filter: filter on a set/list of client uuids
+        keys_to_highlight: list of keys to highlight
+        display_only_key_metadata: (read/write access, ...) instead of values
+        indent: the number of characters to indent the blackboard
+        symbols: dictates formatting style
+            (one of :data:`py_trees.display.unicode_symbols` || :data:`py_trees.display.ascii_symbols` || :data:`py_trees.display.xhtml_symbols`),
+            defaults to unicode if stdout supports it, ascii otherwise
+
+    Returns:
+        a text-based representation of the behaviour tree
+
+    .. seealso:: :meth:`py_trees.display.unicode_blackboard`
+    """
+    if symbols is None:
+        symbols = unicode_symbols if console.has_unicode() else ascii_symbols
+
+    def style(s, font_weight=False):
+        if font_weight:
+            return symbols['bold'] + s + symbols['bold_reset']
+        else:
+            return s
+
+    def generate_lines(storage, metadata, indent):
+        def assemble_value_line(key, value, apply_highlight, indent, key_width):
+            s = ""
+            lines = ('{0}'.format(value)).split('\n')
+            if len(lines) > 1:
+                s += console.cyan + indent + '{0: <{1}}'.format(key, key_width) + console.white + ":\n"
+                for line in lines:
+                    s += console.yellow + indent + "  {0}\n".format(line)
+            else:
+                s += console.cyan + indent + '{0: <{1}}'.format(key, key_width) + console.white + ": " + console.yellow + '{0}\n'.format(value) + console.reset
+            return style(s, apply_highlight) + console.reset
+
+        def assemble_metadata_line(key, metadata, apply_highlight, indent, key_width):
+            s = ""
+            s += console.cyan + indent + '{0: <{1}}'.format(key, key_width + 1) + ": "
+            client_uuids = list(set(metadata.read) | set(metadata.write) | set(metadata.exclusive))
+            prefix = ''
+            metastrings = []
+            for client_uuid in client_uuids:
+                metastring = prefix + '{0}'.format(
+                    utilities.truncate(
+                        blackboard.Blackboard.clients[client_uuid].name, 11
+                    )
+                )
+                metastring += ' ('
+                if client_uuid in metadata.read:
+                    metastring += 'r'
+                if client_uuid in metadata.write:
+                    metastring += 'w'
+                if client_uuid in metadata.exclusive:
+                    metastring += 'x'
+                metastring += ')'
+                metastrings.append(metastring)
+            s += console.yellow + "{}\n".format(', '.join(metastrings))
+            return style(s, apply_highlight) + console.reset
+
+        text_indent = symbols['space'] * (4 + indent)
+        key_width = 0
+        for key in storage.keys():
+            key_width = len(key) if len(key) > key_width else key_width
+        for key in sorted(storage.keys()):
+            if metadata is not None:
+                yield assemble_metadata_line(
+                    key=key,
+                    metadata=metadata[key],
+                    apply_highlight=key in keys_to_highlight,
+                    indent=text_indent,
+                    key_width=key_width)
+            else:
+                yield assemble_value_line(
+                    key=key,
+                    value=storage[key],
+                    apply_highlight=key in keys_to_highlight,
+                    indent=text_indent,
+                    key_width=key_width)
+
+    blackboard_metadata = blackboard.Blackboard.metadata if display_only_key_metadata else None
+
+    if key_filter:
+        if type(key_filter) == list:
+            key_filter = set(key_filter)
+        all_keys = blackboard.Blackboard.keys() & key_filter
+    elif regex_filter:
+        all_keys = blackboard.Blackboard.keys_filtered_by_regex(regex_filter)
+    elif client_filter:
+        all_keys = blackboard.Blackboard.keys_filtered_by_clients(client_filter)
+    else:
+        all_keys = blackboard.Blackboard.keys()
+    blackboard_storage = {}
+    for key in all_keys:
+        try:
+            blackboard_storage[key] = blackboard.Blackboard.storage[key]
+        except KeyError:
+            blackboard_storage[key] = "-"
+
+    title = "Clients" if display_only_key_metadata else "Data"
+    s = console.green + symbols['space'] * indent + "Blackboard {}\n".format(title) + console.reset
+    if key_filter:
+        s += symbols['space'] * (indent + 2) + "Filter: '{}'\n".format(key_filter)
+    elif regex_filter:
+        s += symbols['space'] * (indent + 2) + "Filter: '{}'\n".format(regex_filter)
+    elif client_filter:
+        s += symbols['space'] * (indent + 2) + "Filter: {}\n".format(str(client_filter))
+    for line in generate_lines(blackboard_storage, blackboard_metadata, indent):
+        s += "{}".format(line)
+    return s
+
+
+def ascii_blackboard(
+        key_filter: typing.Union[typing.Set[str], typing.List[str]]=None,
+        regex_filter: str=None,
+        client_filter: typing.Union[typing.Set[uuid.UUID], typing.List[uuid.UUID]]=None,
+        keys_to_highlight: typing.List[str]=[],
+        display_only_key_metadata: bool=False,
+        indent: int=0) -> str:
+    """
+    Graffiti your console with ascii art for your blackboard.
+
+    Args:
+        key_filter: filter on a set/list of blackboard keys
+        regex_filter: filter on a python regex str
+        client_filter: filter on a set/list of client uuids
+        keys_to_highlight: list of keys to highlight
+        display_only_key_metadata: read/write access, ... instead of values
+        indent: the number of characters to indent the blackboard
+
+    Returns:
+        a unicoded blackboard (i.e. in string form)
+
+    .. seealso:: :meth:`py_trees.display.unicode_blackboard`
+
+    .. note:: registered variables that have not yet been set are marked with a '-'
+    """
+    lines = _generate_text_blackboard(
+        key_filter=key_filter,
+        regex_filter=regex_filter,
+        client_filter=client_filter,
+        keys_to_highlight=keys_to_highlight,
+        display_only_key_metadata=display_only_key_metadata,
+        indent=indent,
+        symbols=ascii_symbols
+    )
+    return lines
+
+
+def unicode_blackboard(
+        key_filter: typing.Union[typing.Set[str], typing.List[str]]=None,
+        regex_filter: str=None,
+        client_filter: typing.Union[typing.Set[uuid.UUID], typing.List[uuid.UUID]]=None,
+        keys_to_highlight: typing.List[str]=[],
+        display_only_key_metadata: bool=False,
+        indent: int=0) -> str:
+    """
+    Graffiti your console with unicode art for your blackboard.
+
+    Args:
+        key_filter: filter on a set/list of blackboard keys
+        regex_filter: filter on a python regex str
+        client_filter: filter on a set/list of client uuids
+        keys_to_highlight: list of keys to highlight
+        display_only_key_metadata: read/write access, ... instead of values
+        indent: the number of characters to indent the blackboard
+
+    Returns:
+        a unicoded blackboard (i.e. in string form)
+
+    .. seealso:: :meth:`py_trees.display.ascii_blackboard`
+
+    .. note:: registered variables that have not yet been set are marked with a '-'
+    """
+    lines = _generate_text_blackboard(
+        key_filter=key_filter,
+        regex_filter=regex_filter,
+        client_filter=client_filter,
+        keys_to_highlight=keys_to_highlight,
+        display_only_key_metadata=display_only_key_metadata,
+        indent=indent,
+        symbols=None  # defaults to unicode, falls back to ascii
+    )
+    return lines
+
+
+def _generate_text_activity(
+    activity_stream: typing.List[blackboard.ActivityItem]=None,
+    show_title: bool=True,
+    indent: int=0,
+    symbols: typing.Dict[str, str]=None
+) -> str:
+    """
+    Generator for the various formatted outputs (ascii, unicode, xhtml).
+
+    Args:
+        activity_stream: the log of activity, if None, get the entire activity stream
+        indent: the number of characters to indent the blackboard
+        show_title: include the title in the output
+    """
+    space = symbols['space']
+    if activity_stream is None:
+        activity_stream = blackboard.Blackboard.activity_stream.data
+    if show_title:
+        s = space * indent + console.green + "Blackboard Activity Stream" + console.reset + "\n"
+    else:
+        s = ""
+    if activity_stream is not None:
+        key_width = 0
+        client_width = 0
+        for item in activity_stream:
+            key_width = len(item.key) if len(item.key) > key_width else key_width
+            client_width = len(item.client_name) if len(item.client_name) > client_width else client_width
+        client_width = min(client_width, 20)
+        type_width = len("ACCESS_DENIED")
+        value_width = 80 - key_width - 3 - type_width - 3 - client_width - 3
+        for item in activity_stream:
+            s += console.cyan + space * (4 + indent)
+            s += "{0: <{1}}:".format(item.key, key_width + 1) + space
+            s += console.yellow
+            s += "{0: <{1}}".format(item.activity_type, type_width) + space
+            s += console.white + "|" + space
+            s += "{0: <{1}}".format(
+                utilities.truncate(
+                    item.client_name.replace('\n', '_'),
+                    client_width),
+                client_width) + space
+            s += "|" + space
+            if item.activity_type == blackboard.ActivityType.READ.value:
+                s += symbols["left_arrow"] + space + "{}\n".format(
+                    utilities.truncate(str(item.current_value), value_width)
+                )
+            elif item.activity_type == blackboard.ActivityType.WRITE.value:
+                s += console.green
+                s += symbols["right_arrow"] + space
+                s += "{}\n".format(
+                    utilities.truncate(str(item.current_value), value_width)
+                )
+            elif item.activity_type == blackboard.ActivityType.ACCESSED.value:
+                s += console.yellow
+                s += symbols["left_right_arrow"] + space
+                s += "{}\n".format(
+                    utilities.truncate(str(item.current_value), value_width)
+                )
+            elif item.activity_type == blackboard.ActivityType.ACCESS_DENIED.value:
+                s += console.red
+                s += console.multiplication_x + space
+                s += "client has no read/write access\n"
+            elif item.activity_type == blackboard.ActivityType.NO_KEY.value:
+                s += console.red
+                s += console.multiplication_x + space
+                s += "key does not yet exist\n"
+            elif item.activity_type == blackboard.ActivityType.NO_OVERWRITE.value:
+                s += console.yellow
+                s += console.forbidden_circle + space
+                s += "{}\n".format(
+                    utilities.truncate(str(item.current_value), value_width)
+                )
+            elif item.activity_type == blackboard.ActivityType.UNSET.value:
+                s += "\n"
+            elif item.activity_type == blackboard.ActivityType.INITIALISED.value:
+                s += console.green
+                s += symbols["right_arrow"] + space
+                s += "{}\n".format(
+                    utilities.truncate(str(item.current_value), value_width)
+                )
+            else:
+                s += "unknown operation\n"
+        s = s.rstrip("\n")
+        s += console.reset
+        return s
+
+
+def unicode_blackboard_activity_stream(
+    activity_stream: typing.List[blackboard.ActivityItem]=None,
+    indent: int=0,
+    show_title: bool=True
+):
+    """
+    Pretty print the blackboard stream to console.
+
+    Args:
+        activity_stream: the log of activity, if None, get the entire activity stream
+        indent: the number of characters to indent the blackboard
+        show_title: include the title in the output
+    """
+    return _generate_text_activity(
+        activity_stream=activity_stream,
+        show_title=show_title,
+        indent=indent,
+        symbols=unicode_symbols if console.has_unicode() else ascii_symbols
+    )
