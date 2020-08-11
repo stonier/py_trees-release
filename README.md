@@ -1,3 +1,26 @@
+## py_trees (foxy) - 2.1.1-1
+
+The packages in the `py_trees` repository were released into the `foxy` distro by running `/usr/bin/bloom-release --track foxy --rosdistro foxy py_trees` on `Tue, 11 Aug 2020 13:56:07 -0000`
+
+The `py_trees` package was released.
+
+Version of package(s) in repository `py_trees`:
+
+- upstream repository: https://github.com/splintered-reality/py_trees.git
+- release repository: https://github.com/stonier/py_trees-release.git
+- rosdistro version: `2.1.0-1`
+- old version: `2.1.0-1`
+- new version: `2.1.1-1`
+
+Versions of tools used:
+
+- bloom version: `0.9.3`
+- catkin_pkg version: `0.4.16`
+- rosdep version: `0.18.0`
+- rosdistro version: `0.8.0`
+- vcstools version: `0.1.40`
+
+
 ## py_trees (noetic) - 0.7.3-1
 
 The packages in the `py_trees` repository were released into the `noetic` distro by running `/usr/bin/bloom-release --track noetic --rosdistro noetic py_trees` on `Mon, 03 Aug 2020 02:54:03 -0000`
