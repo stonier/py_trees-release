@@ -46,6 +46,7 @@ d = setup(
     maintainer='Daniel Stonier <d.stonier@gmail.com>, Naveed Usmani <naveedhd@gmail.com>',
     url='http://github.com/stonier/py_trees',
     keywords='behaviour-trees',
+    zip_safe=True,
     classifiers=[
         'Environment :: Console',
         'Intended Audience :: Developers',

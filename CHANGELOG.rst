@@ -3,31 +3,11 @@ Changelog
 
 Forthcoming
 -----------
-* ...
-
-0.7.6 (2021-01-10)
-------------------
-* [infra] skipping archived 0.7.4 and 0.7.5 versions that were dropped in favour of a push to 1.0.x
-
-0.7.4 (2021-01-10)
-------------------
-* [decorators] setting the child's parent as the decorator
-
-0.7.3 (202019-08-02)
---------------------
-* [infra] fix cmake version, zip_safe build warnings for catkin
-
-0.7.2 (202019-08-02)
---------------------
 * [docs] fix some warnings
 
-0.7.1 (202019-07-28)
---------------------
-* [infra] scripts using python3
-
-0.7.0 (202019-07-28)
---------------------
-* [infra] python3 ROS environment support (if using virtualenvs, was already python3 compatible)
+0.6.9 (2021-01-10)
+------------------
+* [decorators] setting the child's parent as the decorator
 
 0.6.7 (2019-02-13)
 ------------------
