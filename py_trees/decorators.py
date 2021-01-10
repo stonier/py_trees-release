@@ -82,6 +82,7 @@ class Decorator(behaviour.Behaviour):
             name = self.__class__.__name__ + "\n[{}]".format(child.name)
         # Initialise
         super(Decorator, self).__init__(name=name)
+        child.parent = self
         self.children.append(child)
         # Give a convenient alias
         self.decorated = self.children[0]
@@ -109,6 +110,7 @@ class Decorator(behaviour.Behaviour):
         """
         A decorator's tick is exactly the same as a normal proceedings for
         a Behaviour's tick except that it also ticks the decorated child node.
+
         Yields:
             :class:`~py_trees.behaviour.Behaviour`: a reference to itself or one of its children
         """
