@@ -1,3 +1,26 @@
+## py_trees (melodic) - 0.6.9-1
+
+The packages in the `py_trees` repository were released into the `melodic` distro by running `/usr/bin/bloom-release --track melodic --rosdistro melodic py_trees` on `Sun, 10 Jan 2021 17:23:15 -0000`
+
+The `py_trees` package was released.
+
+Version of package(s) in repository `py_trees`:
+
+- upstream repository: https://github.com/splintered-reality/py_trees.git
+- release repository: https://github.com/stonier/py_trees-release.git
+- rosdistro version: `0.6.8-0`
+- old version: `0.6.8-0`
+- new version: `0.6.9-1`
+
+Versions of tools used:
+
+- bloom version: `0.10.0`
+- catkin_pkg version: `0.4.22`
+- rosdep version: `0.19.0`
+- rosdistro version: `0.8.2`
+- vcstools version: `0.1.42`
+
+
 ## py_trees (noetic) - 0.7.6-2
 
 The packages in the `py_trees` repository were released into the `noetic` distro by running `/usr/bin/bloom-release --track noetic --rosdistro noetic py_trees` on `Sun, 10 Jan 2021 17:18:27 -0000`
