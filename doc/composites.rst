@@ -1,5 +1,3 @@
-.. _composites-section:
-
 Composites
 ==========
 
@@ -11,15 +9,11 @@ composite's methods, visit the :ref:`py-trees-composites-module` module api docu
 
 .. tip:: First time through, make sure to follow the link through to relevant demo programs.
 
-.. _sequence-section:
-
 Sequence
 --------
 
 .. autoclass:: py_trees.composites.Sequence
     :noindex:
-
-.. _selector-section:
 
 Selector
 --------
@@ -27,7 +21,11 @@ Selector
 .. autoclass:: py_trees.composites.Selector
     :noindex:
 
-.. _parallel-section:
+Chooser
+-------
+
+.. autoclass:: py_trees.composites.Chooser
+    :noindex:
 
 Parallel
 --------

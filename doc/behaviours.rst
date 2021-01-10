@@ -1,5 +1,3 @@
-.. _behaviours-section:
-
 Behaviours
 ==========
 
@@ -13,13 +11,12 @@ Skeleton
 --------
 
 Behaviours in py_trees are created by subclassing the
-:class:`~py_trees.behaviour.Behaviour` class. A skeleton example:
+:class:`~py_trees.behaviour.Behaviour` class. A skeleton
+with informative comments is shown below.
 
 .. literalinclude:: examples/skeleton_behaviour.py
    :language: python
    :linenos:
-
-.. _lifecycle-section:
 
 Lifecycle
 ---------
@@ -39,8 +36,6 @@ Important points to focus on:
   :meth:`~py_trees.demos.lifecycle.Counter.terminate()` methods.
 * The parent :meth:`~py_trees.behaviour.Behaviour.tick()` method always calls update()
 * The :meth:`~py_trees.demos.lifecycle.Counter.update()` method is responsible for deciding the behaviour :ref:`status-section`.
-
-.. _initialisation-section:
 
 Initialisation
 --------------
@@ -90,8 +85,6 @@ The ``update()`` method must return one of ``RUNNING``. ``SUCCESS`` or ``FAILURE
 status of ``INVALID`` is the initial default and ordinarily automatically set by other
 mechansims (e.g. when a higher priority behaviour cancels the currently selected one).
 
-.. _feedback-message-section:
-
 Feedback Message
 ----------------
 
@@ -108,10 +101,10 @@ in the ``update()`` method.
 
 The feedback message is designed to assist in notifying humans when a
 significant event happens or for deciding when to log the state of
-a tree. If you notify or log every tick, then you end up with a lot of
+a tree. If you notify or log every tick, then you end up with alot of
 noise sorting through an abundance of data in which nothing much is
 happening to find the one point where something significant occurred
-that led to surprising or catastrophic behaviour.
+that led to surprising or catostrophic behaviour.
 
 Setting the feedback message is usually important when something
 significant happens in the ``RUNNING`` state or to provide information
@@ -123,18 +116,14 @@ Avoid updating it with a feedback message at every tick with updated plan
 details. Instead, update the message whenever a significant change
 occurs - e.g. when the previous plan is re-planned or pre-empted.
 
-.. _loggers-section:
-
 Loggers
 -------
 
 These are used throughout the demo programs. They are not intended to be
 for anything heavier than debugging simple examples. This kind of logging
-tends to get rather heavy and requires a lot of filtering to find the points
+tends to get rather heavy and requires alot of filtering to find the points
 of change that you are interested in (see comments about the feedback
 messages above).
-
-.. _complex-example-section:
 
 Complex Example
 ---------------
@@ -155,4 +144,11 @@ concepts discussed above, but not present in the very simple lifecycle
     is what is generally referred to as a :term:`blocking` behaviour.
 
 .. image:: images/action.gif
+
+Meta Behaviours
+---------------
+
+.. automodule:: py_trees.meta
+    :noindex:
+
 

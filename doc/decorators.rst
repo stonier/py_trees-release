@@ -1,5 +1,5 @@
 Decorators
 ==========
 
-.. automodule:: py_trees.decorators
+ .. automodule:: py_trees.decorators
     :noindex:
