@@ -5,6 +5,22 @@ Forthcoming
 -----------
 * ...
 
+2.1.5 (2021-05-09)
+------------------
+* [composites] sequences w/o memory, `#325 <https://github.com/splintered-reality/py_trees/pull/325>`_
+* [composites] selectors with memory, `#324 <https://github.com/splintered-reality/py_trees/pull/324>`_
+* [display] unicode trees are unicode, not ascii `#324 <https://github.com/splintered-reality/py_trees/pull/324>`_
+
+2.1.4 (2021-02-24)
+------------------
+* [behaviours] added BlackboardToStatus, `#320 <https://github.com/splintered-reality/py_trees/pull/320>`_
+* [idioms] bugfix lost append in blackboard names for either_or, `#319 <https://github.com/splintered-reality/py_trees/pull/319>`_
+* [docs] contributing guidelines added, `#315 <https://github.com/splintered-reality/py_trees/pull/315>`_
+
+2.1.3 (2020-12-13)
+------------------
+* [blackboard] convenience `absolute_name()` api for blackboard clients, `#306 <https://github.com/splintered-reality/py_trees/pull/306>`_
+
 2.1.2 (2020-11-05)
 ------------------
 * [sequences] bugfix current child setting whilst moving through children, `#304 <https://github.com/splintered-reality/py_trees/pull/304>`_

@@ -8,26 +8,49 @@
 ##############################################################################
 
 """
-Composites are the **factories** and **decision makers** of a
-behaviour tree. They are responsible for shaping the branches.
+Composites are responsible for directing the path traced through
+the tree on a given tick (execution). They are the **factories**
+(Sequences and Parallels) and **decision makers** (Selectors) of a behaviour
+tree.
 
 .. graphviz:: dot/composites.dot
-
-.. tip:: You should never need to subclass or create new composites.
-
-Most patterns can be achieved with a combination of the above. Adding to this
-set exponentially increases the complexity and subsequently
-making it more difficult to design, introspect, visualise and debug the trees. Always try
-to find the combination you need to achieve your result before contemplating adding
-to this set. Actually, scratch that...just don't contemplate it!
+   :align: center
+   :caption: PyTree Composites
 
 Composite behaviours typically manage children and apply some logic to the way
 they execute and return a result, but generally don't do anything themselves.
 Perform the checks or actions you need to do in the non-composite behaviours.
 
+Most any desired functionality can be authored with a combination of these
+three composites. In fact, it is precisely this feature that makes behaviour
+trees attractive - it breaks down complex decision making logic to just three
+primitive elements. It is possible and often desirable to extend this set with
+custom composites of your own, but think carefully before you do - in almost
+every case, a combination of the existing composites will serve and as a
+result, you will merely compound the complexity inherent in your tree logic.
+This this makes it confoundingly difficult to design, introspect and debug. As
+an example, design sessions often revolve around a sketched graph on a
+whiteboard. When these graphs are composed of just five elements (Selectors,
+Sequences, Parallels, Decorators and Behaviours), it is very easy to understand
+the logic at a glance. Double the number of fundamental elements and you may as
+well be back at the terminal parsing code.
+
+.. tip:: You should never need to subclass or create new composites.
+
+The basic operational modes of the three composites in this library are as follows:
+
+* :class:`~py_trees.composites.Selector`: select a child to execute based on cascading priorities
 * :class:`~py_trees.composites.Sequence`: execute children sequentially
-* :class:`~py_trees.composites.Selector`: select a path through the tree, interruptible by higher priorities
-* :class:`~py_trees.composites.Parallel`: manage children concurrently
+* :class:`~py_trees.composites.Parallel`: execute children concurrently
+
+This library does provide some flexibility in *how* each composite is implemented without
+breaking the fundamental nature of each (as described above). Selectors and Sequences can
+be configured with or without memory (resumes or resets if children are RUNNING) and
+the results of a parallel can be configured to wait upon all children completing, succeed
+on one, all or a subset thereof.
+
+.. tip:: Follow the links in each composite's documentation to the relevant demo programs.
+
 """
 
 ##############################################################################
@@ -39,7 +62,6 @@ import typing
 
 from . import behaviour
 from . import common
-from .common import Status
 
 ##############################################################################
 # Composites
@@ -71,7 +93,7 @@ class Composite(behaviour.Behaviour):
     # Worker Overrides
     ############################################
 
-    def stop(self, new_status=Status.INVALID):
+    def stop(self, new_status=common.Status.INVALID):
         """
         There is generally two use cases that must be supported here.
 
@@ -86,7 +108,7 @@ class Composite(behaviour.Behaviour):
         """
         self.logger.debug("%s.stop()[%s]" % (self.__class__.__name__, "%s->%s" % (self.status, new_status) if self.status != new_status else "%s" % new_status))
         # priority interrupted
-        if new_status == Status.INVALID:
+        if new_status == common.Status.INVALID:
             self.current_child = None
             for child in self.children:
                 child.stop(new_status)
@@ -159,8 +181,8 @@ class Composite(behaviour.Behaviour):
         """
         if self.current_child is not None and (self.current_child.id == child.id):
             self.current_child = None
-        if child.status == Status.RUNNING:
-            child.stop(Status.INVALID)
+        if child.status == common.Status.RUNNING:
+            child.stop(common.Status.INVALID)
         child_index = self.children.index(child)
         self.children.remove(child)
         child.parent = None
@@ -172,8 +194,8 @@ class Composite(behaviour.Behaviour):
         """
         self.current_child = None
         for child in self.children:
-            if child.status == Status.RUNNING:
-                child.stop(Status.INVALID)
+            if child.status == common.Status.RUNNING:
+                child.stop(common.Status.INVALID)
             child.parent = None
         # makes sure to delete it for this class and all references to it
         #   http://stackoverflow.com/questions/850795/clearing-python-lists
@@ -246,7 +268,7 @@ class Composite(behaviour.Behaviour):
 
 class Selector(Composite):
     """
-    Selectors are the Decision Makers
+    Selectors are the decision makers.
 
     .. graphviz:: dot/selector.dot
 
@@ -262,17 +284,17 @@ class Selector(Composite):
        executing low priority branch. This signal will percolate down that child's own subtree. Behaviours
        should make sure that they catch this and *destruct* appropriately.
 
-    Make sure you do your appropriate cleanup in the :meth:`terminate()` methods! e.g. cancelling a running goal, or restoring a context.
-
     .. seealso:: The :ref:`py-trees-demo-selector-program` program demos higher priority switching under a selector.
 
     Args:
         name (:obj:`str`): the composite behaviour name
+        memory (:obj:`bool`): if :data:`~py_trees.common.Status.RUNNING` on the previous tick, resume with the :data:`~py_trees.common.Status.RUNNING` child
         children ([:class:`~py_trees.behaviour.Behaviour`]): list of children to add
     """
 
-    def __init__(self, name="Selector", children=None):
+    def __init__(self, name="Selector", memory=False, children=None):
         super(Selector, self).__init__(name, children)
+        self.memory = memory
 
     def tick(self):
         """
@@ -284,21 +306,47 @@ class Selector(Composite):
             :class:`~py_trees.behaviour.Behaviour`: a reference to itself or one of its children
         """
         self.logger.debug("%s.tick()" % self.__class__.__name__)
-        # Required behaviour for *all* behaviours and composites is
-        # for tick() to check if it isn't running and initialise
-        if self.status != Status.RUNNING:
-            # selectors dont do anything specific on initialisation
-            #   - the current child is managed by the update, never needs to be 'initialised'
-            # run subclass (user) handles
+        # initialise
+        if self.status != common.Status.RUNNING:
+            # selector specific initialisation - leave initialise() free for users to
+            # re-implement without having to make calls to super()
+            self.logger.debug("%s.tick() [!RUNNING->reset current_child]" % self.__class__.__name__)
+            self.current_child = self.children[0] if self.children else None
+
+            # reset the children - don't need to worry since they will be handled
+            # a) prior to a remembered starting point, or
+            # b) invalidated by a higher level priority
+
+            # user specific initialisation
             self.initialise()
-        # run any work designated by a customised instance of this class
+
+        # customised work
         self.update()
+
+        # nothing to do
+        if not self.children:
+            self.current_child = None
+            self.stop(common.Status.FAILURE)
+            yield self
+            return
+
+        # starting point
+        if self.memory:
+            index = self.children.index(self.current_child)
+            # clear out preceding status' - not actually necessary but helps
+            # visualise the case of memory vs no memory
+            for child in itertools.islice(self.children, None, index):
+                child.stop(common.Status.INVALID)
+        else:
+            index = 0
+
+        # actual work
         previous = self.current_child
-        for child in self.children:
+        for child in itertools.islice(self.children, index, None):
             for node in child.tick():
                 yield node
                 if node is child:
-                    if node.status == Status.RUNNING or node.status == Status.SUCCESS:
+                    if node.status == common.Status.RUNNING or node.status == common.Status.SUCCESS:
                         self.current_child = child
                         self.status = node.status
                         if previous is None or previous != self.current_child:
@@ -306,20 +354,20 @@ class Selector(Composite):
                             passed = False
                             for child in self.children:
                                 if passed:
-                                    if child.status != Status.INVALID:
-                                        child.stop(Status.INVALID)
+                                    if child.status != common.Status.INVALID:
+                                        child.stop(common.Status.INVALID)
                                 passed = True if child == self.current_child else passed
                         yield self
                         return
         # all children failed, set failure ourselves and current child to the last bugger who failed us
-        self.status = Status.FAILURE
+        self.status = common.Status.FAILURE
         try:
             self.current_child = self.children[-1]
         except IndexError:
             self.current_child = None
         yield self
 
-    def stop(self, new_status=Status.INVALID):
+    def stop(self, new_status=common.Status.INVALID):
         """
         Stopping a selector requires setting the current child to none. Note that it
         is important to implement this here instead of terminate, so users are free
@@ -331,23 +379,9 @@ class Selector(Composite):
         """
         # retain information about the last running child if the new status is
         # SUCCESS or FAILURE
-        if new_status == Status.INVALID:
+        if new_status == common.Status.INVALID:
             self.current_child = None
         Composite.stop(self, new_status)
-
-    def __repr__(self):
-        """
-        Simple string representation of the object.
-
-        Returns:
-            :obj:`str`: string representation
-        """
-        s = "Name       : %s\n" % self.name
-        s += "  Status  : %s\n" % self.status
-        s += "  Current : %s\n" % (self.current_child.name if self.current_child is not None else "none")
-        s += "  Children: %s\n" % [child.name for child in self.children]
-        return s
-
 
 ##############################################################################
 # Sequence
@@ -374,12 +408,19 @@ class Sequence(Composite):
     .. seealso:: The :ref:`py-trees-demo-sequence-program` program demos a simple sequence in action.
 
     Args:
-        name (:obj:`str`): the composite behaviour name
-        children ([:class:`~py_trees.behaviour.Behaviour`]): list of children to add
+        name: the composite behaviour name
+        memory: if :data:`~py_trees.common.Status.RUNNING` on the previous tick, resume with the :data:`~py_trees.common.Status.RUNNING` child
+        children: list of children to add
 
     """
-    def __init__(self, name="Sequence", children=None):
+    def __init__(
+        self,
+        name: str="Sequence",
+        memory: bool=True,
+        children: typing.List[behaviour.Behaviour]=None
+    ):
         super(Sequence, self).__init__(name, children)
+        self.memory = memory
 
     def tick(self):
         """
@@ -390,16 +431,21 @@ class Sequence(Composite):
         """
         self.logger.debug("%s.tick()" % self.__class__.__name__)
 
-        # reset
-        if self.status != Status.RUNNING:
-            self.logger.debug("%s.tick() [!RUNNING->resetting child index]" % self.__class__.__name__)
+        # initialise
+        index = 0
+        if self.status != common.Status.RUNNING or not self.memory:
             self.current_child = self.children[0] if self.children else None
             for child in self.children:
-                # reset the children
-                if child.status != Status.INVALID:
-                    child.stop(Status.INVALID)
-            # subclass (user) handling
+                if child.status != common.Status.INVALID:
+                    child.stop(common.Status.INVALID)
+            # user specific initialisation
             self.initialise()
+        else:  # self.memory is True and status is RUNNING
+            index = self.children.index(self.current_child)
+            # clear out preceding status' - not actually necessary but helps
+            # visualise the case of memory vs no memory
+            for child in itertools.islice(self.children, None, index):
+                child.stop(common.Status.INVALID)
 
         # customised work
         self.update()
@@ -407,16 +453,15 @@ class Sequence(Composite):
         # nothing to do
         if not self.children:
             self.current_child = None
-            self.stop(Status.SUCCESS)
+            self.stop(common.Status.SUCCESS)
             yield self
             return
 
-        # iterate through children
-        index = self.children.index(self.current_child)
+        # actual work
         for child in itertools.islice(self.children, index, None):
             for node in child.tick():
                 yield node
-                if node is child and node.status != Status.SUCCESS:
+                if node is child and node.status != common.Status.SUCCESS:
                     self.status = node.status
                     yield self
                     return
@@ -427,8 +472,9 @@ class Sequence(Composite):
             except IndexError:
                 pass
 
-        self.stop(Status.SUCCESS)
+        self.stop(common.Status.SUCCESS)
         yield self
+
 
 ##############################################################################
 # Parallel
@@ -519,8 +565,8 @@ class Parallel(Composite):
             for child in self.children:
                 # reset the children, this ensures old SUCCESS/FAILURE status flags
                 # don't break the synchronisation logic below
-                if child.status != Status.INVALID:
-                    child.stop(Status.INVALID)
+                if child.status != common.Status.INVALID:
+                    child.stop(common.Status.INVALID)
             self.current_child = None
             # subclass (user) handling
             self.initialise()
@@ -528,7 +574,7 @@ class Parallel(Composite):
         # nothing to do
         if not self.children:
             self.current_child = None
-            self.stop(Status.SUCCESS)
+            self.stop(common.Status.SUCCESS)
             yield self
             return
 
@@ -570,7 +616,7 @@ class Parallel(Composite):
         self.status = new_status
         yield self
 
-    def stop(self, new_status: common.Status=Status.INVALID):
+    def stop(self, new_status: common.Status=common.Status.INVALID):
         """
         For interrupts or any of the termination conditions, ensure that any
         running children are stopped.
@@ -586,15 +632,6 @@ class Parallel(Composite):
         # only nec. thing here is to make sure the status gets set to INVALID if
         # it was a higher priority interrupt (new_status == INVALID)
         Composite.stop(self, new_status)
-
-    def verbose_info_string(self) -> str:
-        """
-        Provide additional information about the underlying policy.
-
-        Returns:
-            :obj:`str`: name of the policy along with it's configuration
-        """
-        return str(self.policy)
 
     def validate_policy_configuration(self):
         """
