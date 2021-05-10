@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # License: BSD
-#   https://raw.githubusercontent.com/stonier/py_trees/devel/LICENSE
+#   https://raw.githubusercontent.com/splintered-reality/py_trees/devel/LICENSE
 #
 ##############################################################################
 # Documentation
@@ -35,6 +35,7 @@ import py_trees.console as console
 
 def examples():
     examples = [console.cyan + "py-trees-render" + console.yellow + " py_trees.demos.stewardship.create_tree" + console.reset,
+                console.cyan + "py-trees-render" + console.yellow + " --with-blackboard-variables" + console.reset,
                 console.cyan + "py-trees-render" + console.yellow + " --name=foo py_trees.demos.stewardship.create_tree" + console.reset,
                 console.cyan + "py-trees-render" + console.yellow + " --kwargs='{\"level\":\"all\"}' py_trees.demos.dot_graphs.create_tree" + console.reset
                 ]
@@ -88,6 +89,8 @@ def command_line_argument_parser():
                         help='visibility level')
     parser.add_argument('-n', '--name', default=None, help='name to use for the created files (defaults to the root behaviour name)')
     parser.add_argument('-k', '--kwargs', default="{}", type=json.loads, help='dictionary of keyword arguments to the method')
+    parser.add_argument('-b', '--with-blackboard-variables', default=False, action='store_true', help='add nodes for the blackboard variables')
+    parser.add_argument('-v', '--verbose', default=False, action='store_true', help="embellish each node in the dot graph with extra information")
     return parser
 
 
@@ -101,15 +104,42 @@ def main():
     """
     args = command_line_argument_parser().parse_args()
     args.enum_level = py_trees.common.string_to_visibility_level(args.level)
-    (module_name, method_name) = args.method.rsplit(".", 1)
+    (module_or_class_name, method_name) = args.method.rsplit(".", 1)
+    class_name = None
 
     try:
-        module_itself = importlib.import_module(module_name)
+        module_itself = importlib.import_module(module_or_class_name)
+        module_name = module_or_class_name
     except ImportError:
-        console.logerror("Could not import module [{0}]".format(module_name))
-        sys.exit(1)
-    method_itself = getattr(module_itself, method_name)
+        # maybe it's a class?
+        (module_name, class_name) = module_or_class_name.rsplit(".", 1)
+        try:
+            module_itself = importlib.import_module(module_name)
+        except ImportError:
+            console.logerror("Could not import module [{0}]".format(module_or_class_name))
+            sys.exit(1)
+    if class_name is not None:
+        class_type = getattr(module_itself, class_name)
+        # first guess - it's a static method
+        method_itself = getattr(class_type, method_name)
+        try:
+            root = method_itself(**(args.kwargs))
+        except TypeError:  # oops, it's an instance method
+            try:
+                method_itself = getattr(class_type(), method_name)
+            except TypeError:
+                console.logerror("Can only instantiate class methods if the class __init__ has no non-default arguments")
+                sys.exit(1)
+            root = method_itself(**(args.kwargs))
+    else:
+        method_itself = getattr(module_itself, method_name)
+        root = method_itself(**(args.kwargs))
 
     # TODO figure out how to insert keyword arguments
-    root = method_itself(**(args.kwargs))
-    py_trees.display.render_dot_tree(root, args.enum_level, args.name)
+    py_trees.display.render_dot_tree(
+        root,
+        args.enum_level,
+        args.name,
+        with_blackboard_variables=args.with_blackboard_variables,
+        with_qualified_names=args.verbose
+    )

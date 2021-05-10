@@ -1,34 +1,56 @@
 #!/usr/bin/env python
 #
 # License: BSD
-#   https://raw.githubusercontent.com/stonier/py_trees/devel/LICENSE
+#   https://raw.githubusercontent.com/splintered-reality/py_trees/devel/LICENSE
 #
 ##############################################################################
 # Documentation
 ##############################################################################
 
 """
-Composites are the **factories** and **decision makers** of a
-behaviour tree. They are responsible for shaping the branches.
+Composites are responsible for directing the path traced through
+the tree on a given tick (execution). They are the **factories**
+(Sequences and Parallels) and **decision makers** (Selectors) of a behaviour
+tree.
 
 .. graphviz:: dot/composites.dot
-
-.. tip:: You should never need to subclass or create new composites.
-
-Most patterns can be achieved with a combination of the above. Adding to this
-set exponentially increases the complexity and subsequently
-making it more difficult to design, introspect, visualise and debug the trees. Always try
-to find the combination you need to achieve your result before contemplating adding
-to this set. Actually, scratch that...just don't contemplate it!
+   :align: center
+   :caption: PyTree Composites
 
 Composite behaviours typically manage children and apply some logic to the way
 they execute and return a result, but generally don't do anything themselves.
 Perform the checks or actions you need to do in the non-composite behaviours.
 
+Most any desired functionality can be authored with a combination of these
+three composites. In fact, it is precisely this feature that makes behaviour
+trees attractive - it breaks down complex decision making logic to just three
+primitive elements. It is possible and often desirable to extend this set with
+custom composites of your own, but think carefully before you do - in almost
+every case, a combination of the existing composites will serve and as a
+result, you will merely compound the complexity inherent in your tree logic.
+This this makes it confoundingly difficult to design, introspect and debug. As
+an example, design sessions often revolve around a sketched graph on a
+whiteboard. When these graphs are composed of just five elements (Selectors,
+Sequences, Parallels, Decorators and Behaviours), it is very easy to understand
+the logic at a glance. Double the number of fundamental elements and you may as
+well be back at the terminal parsing code.
+
+.. tip:: You should never need to subclass or create new composites.
+
+The basic operational modes of the three composites in this library are as follows:
+
+* :class:`~py_trees.composites.Selector`: select a child to execute based on cascading priorities
 * :class:`~py_trees.composites.Sequence`: execute children sequentially
-* :class:`~py_trees.composites.Selector`: select a path through the tree, interruptible by higher priorities
-* :class:`~py_trees.composites.Chooser`: like a selector, but commits to a path once started until it finishes
-* :class:`~py_trees.composites.Parallel`: manage children concurrently
+* :class:`~py_trees.composites.Parallel`: execute children concurrently
+
+This library does provide some flexibility in *how* each composite is implemented without
+breaking the fundamental nature of each (as described above). Selectors and Sequences can
+be configured with or without memory (resumes or resets if children are RUNNING) and
+the results of a parallel can be configured to wait upon all children completing, succeed
+on one, all or a subset thereof.
+
+.. tip:: Follow the links in each composite's documentation to the relevant demo programs.
+
 """
 
 ##############################################################################
@@ -36,17 +58,17 @@ Perform the checks or actions you need to do in the non-composite behaviours.
 ##############################################################################
 
 import itertools
+import typing
 
+from . import behaviour
 from . import common
-from .behaviour import Behaviour
-from .common import Status
 
 ##############################################################################
 # Composites
 ##############################################################################
 
 
-class Composite(Behaviour):
+class Composite(behaviour.Behaviour):
     """
     The parent class to all composite behaviours, i.e. those that
     have children.
@@ -54,43 +76,24 @@ class Composite(Behaviour):
     Args:
         name (:obj:`str`): the composite behaviour name
         children ([:class:`~py_trees.behaviour.Behaviour`]): list of children to add
-        *args: variable length argument list
-        **kwargs: arbitrary keyword arguments
     """
-    def __init__(self, name="", children=None, *args, **kwargs):
-        super(Composite, self).__init__(name, *args, **kwargs)
+    def __init__(self,
+                 name: str=common.Name.AUTO_GENERATED,
+                 children: typing.List[behaviour.Behaviour]=None
+                 ):
+        super(Composite, self).__init__(name)
         if children is not None:
             for child in children:
                 self.add_child(child)
         else:
             self.children = []
+        self.current_child = None
 
     ############################################
     # Worker Overrides
     ############################################
-    def setup(self, timeout):
-        """
-        Relays to each child's :meth:`~py_trees.behaviour.Behaviuor.setup` method in turn.
 
-        Args:
-             timeout (:obj:`float`): time to wait (0.0 is blocking forever)
-
-        Return:
-            :obj:`bool`: suceess or failure of the operation
-        """
-        self.logger.debug("%s.setup()" % (self.__class__.__name__))
-        result = True
-        for child in self.children:
-            new_result = child.setup(timeout)
-            if new_result is None:
-                # replace with py_trees exception!
-                self.logger.error("%s.setup()['%s'.setup() returned None (must be True||False)]" % (self.__class__.__name__, child.name))
-            result = result and new_result
-            if not result:
-                break
-        return result
-
-    def stop(self, new_status=Status.INVALID):
+    def stop(self, new_status=common.Status.INVALID):
         """
         There is generally two use cases that must be supported here.
 
@@ -104,7 +107,9 @@ class Composite(Behaviour):
             new_status (:class:`~py_trees.common.Status`): behaviour will transition to this new status
         """
         self.logger.debug("%s.stop()[%s]" % (self.__class__.__name__, "%s->%s" % (self.status, new_status) if self.status != new_status else "%s" % new_status))
-        if new_status == Status.INVALID:
+        # priority interrupted
+        if new_status == common.Status.INVALID:
+            self.current_child = None
             for child in self.children:
                 child.stop(new_status)
         # This part just replicates the Behaviour.stop function. We replicate it here so that
@@ -120,7 +125,10 @@ class Composite(Behaviour):
         Returns:
             :class::`~py_trees.behaviour.Behaviour`: the tip function of the current child of this composite or None
         """
-        return self.current_child.tip() if self.current_child is not None else None
+        if self.current_child is not None:
+            return self.current_child.tip()
+        else:
+            return super().tip()
 
     ############################################
     # Children
@@ -133,11 +141,18 @@ class Composite(Behaviour):
         Args:
             child (:class:`~py_trees.behaviour.Behaviour`): child to add
 
+        Raises:
+            TypeError: if the child is not an instance of :class:`~py_trees.behaviour.Behaviour`
+            RuntimeError: if the child already has a parent
+
         Returns:
             uuid.UUID: unique id of the child
         """
-        assert isinstance(child, Behaviour), "children must be behaviours, but you passed in %s" % type(child)
+        if not isinstance(child, behaviour.Behaviour):
+            raise TypeError("children must be behaviours, but you passed in {}".format(type(child)))
         self.children.append(child)
+        if child.parent is not None:
+            raise RuntimeError("behaviour '{}' already has parent '{}'".format(child.name, child.parent.name))
         child.parent = self
         return child.id
 
@@ -150,6 +165,7 @@ class Composite(Behaviour):
         """
         for child in children:
             self.add_child(child)
+        return self
 
     def remove_child(self, child):
         """
@@ -163,19 +179,24 @@ class Composite(Behaviour):
 
         .. todo:: Error handling for when child is not in this list
         """
-        if child.status == Status.RUNNING:
-            child.stop(Status.INVALID)
+        if self.current_child is not None and (self.current_child.id == child.id):
+            self.current_child = None
+        if child.status == common.Status.RUNNING:
+            child.stop(common.Status.INVALID)
         child_index = self.children.index(child)
         self.children.remove(child)
+        child.parent = None
         return child_index
 
     def remove_all_children(self):
         """
         Remove all children. Makes sure to stop each child if necessary.
         """
+        self.current_child = None
         for child in self.children:
-            if child.status == Status.RUNNING:
-                child.stop(Status.INVALID)
+            if child.status == common.Status.RUNNING:
+                child.stop(common.Status.INVALID)
+            child.parent = None
         # makes sure to delete it for this class and all references to it
         #   http://stackoverflow.com/questions/850795/clearing-python-lists
         del self.children[:]
@@ -188,11 +209,11 @@ class Composite(Behaviour):
             child (:class:`~py_trees.behaviour.Behaviour`): child to delete
             replacement (:class:`~py_trees.behaviour.Behaviour`): child to insert
         """
-        if child.status == Status.RUNNING:
-            child.stop(Status.INVALID)
-        child_index = self.children.index(child)
         self.logger.debug("%s.replace_child()[%s->%s]" % (self.__class__.__name__, child.name, replacement.name))
-        self.children[child_index] = replacement
+        child_index = self.children.index(child)
+        self.remove_child(child)
+        self.insert_child(replacement, child_index)
+        child.parent = None
 
     def remove_child_by_id(self, child_id):
         """
@@ -206,9 +227,7 @@ class Composite(Behaviour):
         """
         child = next((c for c in self.children if c.id == child_id), None)
         if child is not None:
-            if child.status == Status.RUNNING:
-                child.stop(Status.INVALID)
-            self.children.remove(child)
+            self.remove_child(child)
         else:
             raise IndexError('child was not found with the specified id [%s]' % child_id)
 
@@ -249,7 +268,7 @@ class Composite(Behaviour):
 
 class Selector(Composite):
     """
-    Selectors are the Decision Makers
+    Selectors are the decision makers.
 
     .. graphviz:: dot/selector.dot
 
@@ -265,20 +284,17 @@ class Selector(Composite):
        executing low priority branch. This signal will percolate down that child's own subtree. Behaviours
        should make sure that they catch this and *destruct* appropriately.
 
-    Make sure you do your appropriate cleanup in the :meth:`terminate()` methods! e.g. cancelling a running goal, or restoring a context.
-
     .. seealso:: The :ref:`py-trees-demo-selector-program` program demos higher priority switching under a selector.
 
     Args:
         name (:obj:`str`): the composite behaviour name
+        memory (:obj:`bool`): if :data:`~py_trees.common.Status.RUNNING` on the previous tick, resume with the :data:`~py_trees.common.Status.RUNNING` child
         children ([:class:`~py_trees.behaviour.Behaviour`]): list of children to add
-        *args: variable length argument list
-        **kwargs: arbitrary keyword arguments
     """
 
-    def __init__(self, name="Selector", children=None, *args, **kwargs):
-        super(Selector, self).__init__(name, children, *args, **kwargs)
-        self.current_child = None
+    def __init__(self, name="Selector", memory=False, children=None):
+        super(Selector, self).__init__(name, children)
+        self.memory = memory
 
     def tick(self):
         """
@@ -290,21 +306,47 @@ class Selector(Composite):
             :class:`~py_trees.behaviour.Behaviour`: a reference to itself or one of its children
         """
         self.logger.debug("%s.tick()" % self.__class__.__name__)
-        # Required behaviour for *all* behaviours and composites is
-        # for tick() to check if it isn't running and initialise
-        if self.status != Status.RUNNING:
-            # selectors dont do anything specific on initialisation
-            #   - the current child is managed by the update, never needs to be 'initialised'
-            # run subclass (user) handles
+        # initialise
+        if self.status != common.Status.RUNNING:
+            # selector specific initialisation - leave initialise() free for users to
+            # re-implement without having to make calls to super()
+            self.logger.debug("%s.tick() [!RUNNING->reset current_child]" % self.__class__.__name__)
+            self.current_child = self.children[0] if self.children else None
+
+            # reset the children - don't need to worry since they will be handled
+            # a) prior to a remembered starting point, or
+            # b) invalidated by a higher level priority
+
+            # user specific initialisation
             self.initialise()
-        # run any work designated by a customised instance of this class
+
+        # customised work
         self.update()
+
+        # nothing to do
+        if not self.children:
+            self.current_child = None
+            self.stop(common.Status.FAILURE)
+            yield self
+            return
+
+        # starting point
+        if self.memory:
+            index = self.children.index(self.current_child)
+            # clear out preceding status' - not actually necessary but helps
+            # visualise the case of memory vs no memory
+            for child in itertools.islice(self.children, None, index):
+                child.stop(common.Status.INVALID)
+        else:
+            index = 0
+
+        # actual work
         previous = self.current_child
-        for child in self.children:
+        for child in itertools.islice(self.children, index, None):
             for node in child.tick():
                 yield node
                 if node is child:
-                    if node.status == Status.RUNNING or node.status == Status.SUCCESS:
+                    if node.status == common.Status.RUNNING or node.status == common.Status.SUCCESS:
                         self.current_child = child
                         self.status = node.status
                         if previous is None or previous != self.current_child:
@@ -312,20 +354,20 @@ class Selector(Composite):
                             passed = False
                             for child in self.children:
                                 if passed:
-                                    if child.status != Status.INVALID:
-                                        child.stop(Status.INVALID)
+                                    if child.status != common.Status.INVALID:
+                                        child.stop(common.Status.INVALID)
                                 passed = True if child == self.current_child else passed
                         yield self
                         return
         # all children failed, set failure ourselves and current child to the last bugger who failed us
-        self.status = Status.FAILURE
+        self.status = common.Status.FAILURE
         try:
             self.current_child = self.children[-1]
         except IndexError:
             self.current_child = None
         yield self
 
-    def stop(self, new_status=Status.INVALID):
+    def stop(self, new_status=common.Status.INVALID):
         """
         Stopping a selector requires setting the current child to none. Note that it
         is important to implement this here instead of terminate, so users are free
@@ -337,98 +379,9 @@ class Selector(Composite):
         """
         # retain information about the last running child if the new status is
         # SUCCESS or FAILURE
-        if new_status == Status.INVALID:
+        if new_status == common.Status.INVALID:
             self.current_child = None
         Composite.stop(self, new_status)
-
-    def __repr__(self):
-        """
-        Simple string representation of the object.
-
-        Returns:
-            :obj:`str`: string representation
-        """
-        s = "Name       : %s\n" % self.name
-        s += "  Status  : %s\n" % self.status
-        s += "  Current : %s\n" % (self.current_child.name if self.current_child is not None else "none")
-        s += "  Children: %s\n" % [child.name for child in self.children]
-        return s
-
-
-##############################################################################
-# Chooser
-##############################################################################
-
-
-class Chooser(Selector):
-    """
-    Choosers are Selectors with Commitment
-
-    .. graphviz:: dot/chooser.dot
-
-    A variant of the selector class. Once a child is selected, it
-    cannot be interrupted by higher priority siblings. As soon as the chosen child
-    itself has finished it frees the chooser for an alternative selection. i.e. priorities
-    only come into effect if the chooser wasn't running in the previous tick.
-
-    .. note::
-        This is the only composite in py_trees that is not a core composite in most behaviour tree implementations.
-        Nonetheless, this is useful in fields like robotics, where you have to ensure that your manipulator doesn't
-        drop it's payload mid-motion as soon as a higher interrupt arrives. Use this composite
-        sparingly and only if you can't find another way to easily create an elegant tree composition for your task.
-
-    Args:
-        name (:obj:`str`): the composite behaviour name
-        children ([:class:`~py_trees.behaviour.Behaviour`]): list of children to add
-        *args: variable length argument list
-        **kwargs: arbitrary keyword arguments
-
-    """
-
-    def __init__(self, name="Chooser", children=None, *args, **kwargs):
-        super(Chooser, self).__init__(name, children, *args, **kwargs)
-
-    def tick(self):
-        """
-        Run the tick behaviour for this chooser. Note that the status
-        of the tick is (for now) always determined by its children, not
-        by the user customised update function.
-
-        Yields:
-            :class:`~py_trees.behaviour.Behaviour`: a reference to itself or one of its children
-        """
-        self.logger.debug("%s.tick()" % self.__class__.__name__)
-        # Required behaviour for *all* behaviours and composites is
-        # for tick() to check if it isn't running and initialise
-        if self.status != Status.RUNNING:
-            # chooser specific initialisation
-            # invalidate everything
-            for child in self.children:
-                child.stop(Status.INVALID)
-            self.current_child = None
-            # run subclass (user) initialisation
-            self.initialise()
-        # run any work designated by a customised instance of this class
-        self.update()
-        if self.current_child is not None:
-            # run our child, and invalidate anyone else who may have been ticked last run
-            # (bit wasteful always checking for the latter)
-            for child in self.children:
-                if child is self.current_child:
-                    for node in self.current_child.tick():
-                        yield node
-                elif child.status != Status.INVALID:
-                    child.stop(Status.INVALID)
-        else:
-            for child in self.children:
-                for node in child.tick():
-                    yield node
-                if child.status == Status.RUNNING or child.status == Status.SUCCESS:
-                    self.current_child = child
-                    break
-        new_status = self.current_child.status if self.current_child is not None else Status.FAILURE
-        self.stop(new_status)
-        yield self
 
 ##############################################################################
 # Sequence
@@ -455,15 +408,19 @@ class Sequence(Composite):
     .. seealso:: The :ref:`py-trees-demo-sequence-program` program demos a simple sequence in action.
 
     Args:
-        name (:obj:`str`): the composite behaviour name
-        children ([:class:`~py_trees.behaviour.Behaviour`]): list of children to add
-        *args: variable length argument list
-        **kwargs: arbitrary keyword arguments
+        name: the composite behaviour name
+        memory: if :data:`~py_trees.common.Status.RUNNING` on the previous tick, resume with the :data:`~py_trees.common.Status.RUNNING` child
+        children: list of children to add
 
     """
-    def __init__(self, name="Sequence", children=None, *args, **kwargs):
-        super(Sequence, self).__init__(name, children, *args, **kwargs)
-        self.current_index = -1  # -1 indicates uninitialised
+    def __init__(
+        self,
+        name: str="Sequence",
+        memory: bool=True,
+        children: typing.List[behaviour.Behaviour]=None
+    ):
+        super(Sequence, self).__init__(name, children)
+        self.memory = memory
 
     def tick(self):
         """
@@ -473,58 +430,50 @@ class Sequence(Composite):
             :class:`~py_trees.behaviour.Behaviour`: a reference to itself or one of its children
         """
         self.logger.debug("%s.tick()" % self.__class__.__name__)
-        if self.status != Status.RUNNING:
-            self.logger.debug("%s.tick() [!RUNNING->resetting child index]" % self.__class__.__name__)
-            # sequence specific handling
-            self.current_index = 0
+
+        # initialise
+        index = 0
+        if self.status != common.Status.RUNNING or not self.memory:
+            self.current_child = self.children[0] if self.children else None
             for child in self.children:
-                # reset the children, this helps when introspecting the tree
-                if child.status != Status.INVALID:
-                    child.stop(Status.INVALID)
-            # subclass (user) handling
+                if child.status != common.Status.INVALID:
+                    child.stop(common.Status.INVALID)
+            # user specific initialisation
             self.initialise()
-        # run any work designated by a customised instance of this class
+        else:  # self.memory is True and status is RUNNING
+            index = self.children.index(self.current_child)
+            # clear out preceding status' - not actually necessary but helps
+            # visualise the case of memory vs no memory
+            for child in itertools.islice(self.children, None, index):
+                child.stop(common.Status.INVALID)
+
+        # customised work
         self.update()
-        for child in itertools.islice(self.children, self.current_index, None):
+
+        # nothing to do
+        if not self.children:
+            self.current_child = None
+            self.stop(common.Status.SUCCESS)
+            yield self
+            return
+
+        # actual work
+        for child in itertools.islice(self.children, index, None):
             for node in child.tick():
                 yield node
-                if node is child and node.status != Status.SUCCESS:
+                if node is child and node.status != common.Status.SUCCESS:
                     self.status = node.status
                     yield self
                     return
-            self.current_index += 1
-        # At this point, all children are happy with their SUCCESS, so we should be happy too
-        self.current_index -= 1  # went off the end of the list if we got to here
-        self.stop(Status.SUCCESS)
+            try:
+                # advance if there is 'next' sibling
+                self.current_child = self.children[index + 1]
+                index += 1
+            except IndexError:
+                pass
+
+        self.stop(common.Status.SUCCESS)
         yield self
-
-    @property
-    def current_child(self):
-        """
-        Have to check if there's anything actually running first.
-
-        Returns:
-            :class:`~py_trees.behaviour.Behaviour`: the child that is currently running, or None
-        """
-        if self.current_index == -1:
-            return None
-        return self.children[self.current_index] if self.children else None
-
-    def stop(self, new_status=Status.INVALID):
-        """
-        Stopping a sequence requires taking care of the current index. Note that
-        is important to implement this here intead of terminate, so users are free
-        to subclass this easily with their own terminate and not have to remember
-        that they need to call this function manually.
-
-        Args:
-            new_status (:class:`~py_trees.common.Status`): the composite is transitioning to this new status
-        """
-        # retain information about the last running child if the new status is
-        # SUCCESS or FAILURE
-        if new_status == Status.INVALID:
-            self.current_index = -1
-        Composite.stop(self, new_status)
 
 
 ##############################################################################
@@ -538,24 +487,64 @@ class Parallel(Composite):
 
     .. graphviz:: dot/parallel.dot
 
-    Ticks every child every time the parallel is run (a poor man's form of paralellism).
+    Ticks every child every time the parallel is run (a poor man's form of parallelism).
 
-    * Parallels will return :data:`~py_trees.common.Status.FAILURE` if any child returns :py:data:`~py_trees.common.Status.FAILURE`
-    * Parallels with policy :data:`~py_trees.common.ParallelPolicy.SUCCESS_ON_ONE` return :py:data:`~py_trees.common.Status.SUCCESS` if **at least one** child returns :py:data:`~py_trees.common.Status.SUCCESS` and others are :py:data:`~py_trees.common.Status.RUNNING`.
-    * Parallels with policy :data:`~py_trees.common.ParallelPolicy.SUCCESS_ON_ALL` only returns :py:data:`~py_trees.common.Status.SUCCESS` if **all** children return :py:data:`~py_trees.common.Status.SUCCESS`
+    * Parallels will return :data:`~py_trees.common.Status.FAILURE` if any
+      child returns :py:data:`~py_trees.common.Status.FAILURE`
+    * Parallels with policy :class:`~py_trees.common.ParallelPolicy.SuccessOnAll`
+      only returns :py:data:`~py_trees.common.Status.SUCCESS` if **all** children
+      return :py:data:`~py_trees.common.Status.SUCCESS`
+    * Parallels with policy :class:`~py_trees.common.ParallelPolicy.SuccessOnOne`
+      return :py:data:`~py_trees.common.Status.SUCCESS` if **at least one** child
+      returns :py:data:`~py_trees.common.Status.SUCCESS` and others are
+      :py:data:`~py_trees.common.Status.RUNNING`
+    * Parallels with policy :class:`~py_trees.common.ParallelPolicy.SuccessOnSelected`
+      only returns :py:data:`~py_trees.common.Status.SUCCESS` if a **specified subset**
+      of children return :py:data:`~py_trees.common.Status.SUCCESS`
 
-    .. seealso:: The :ref:`py-trees-demo-context-switching-program` program demos a parallel used to assist in a context switching scenario.
+    Policies :class:`~py_trees.common.ParallelPolicy.SuccessOnAll` and
+    :class:`~py_trees.common.ParallelPolicy.SuccessOnSelected` may be configured to be
+    *synchronised* in which case children that tick with
+    :data:`~py_trees.common.Status.SUCCESS` will be skipped on subsequent ticks until
+    the policy criteria is met, or one of the children returns
+    status :data:`~py_trees.common.Status.FAILURE`.
 
-    Args:
-        name (:obj:`str`): the composite behaviour name
-        policy (:class:`~py_trees.common.ParallelPolicy`): policy to use for deciding success or otherwise
-        children ([:class:`~py_trees.behaviour.Behaviour`]): list of children to add
-        *args: variable length argument list
-        **kwargs: arbitrary keyword arguments
+    Parallels with policy :class:`~py_trees.common.ParallelPolicy.SuccessOnSelected` will
+    check in both the :meth:`~py_trees.behaviour.Behaviour.setup` and
+    :meth:`~py_trees.behaviour.Behaviour.tick` methods to to verify the
+    selected set of children is actually a subset of the children of this parallel.
+
+    .. seealso::
+       * :ref:`Context Switching Demo <py-trees-demo-context-switching-program>`
     """
-    def __init__(self, name="Parallel", policy=common.ParallelPolicy.SUCCESS_ON_ALL, children=None, *args, **kwargs):
-        super(Parallel, self).__init__(name, children, *args, **kwargs)
+    def __init__(self,
+                 name: str=common.Name.AUTO_GENERATED,
+                 policy: common.ParallelPolicy.Base=common.ParallelPolicy.SuccessOnAll(),
+                 children: typing.List[behaviour.Behaviour]=None
+                 ):
+        """
+        Args:
+            name (:obj:`str`): the composite behaviour name
+            policy (:class:`~py_trees.common.ParallelPolicy`): policy to use for deciding success or otherwise
+            children ([:class:`~py_trees.behaviour.Behaviour`]): list of children to add
+        """
+        super(Parallel, self).__init__(name, children)
         self.policy = policy
+
+    def setup(self, **kwargs):
+        """
+        Detect before ticking whether the policy configuration is invalid.
+
+        Args:
+            **kwargs (:obj:`dict`): distribute arguments to this
+               behaviour and in turn, all of it's children
+
+        Raises:
+            RuntimeError: if the parallel's policy configuration is invalid
+            Exception: be ready to catch if any of the children raise an exception
+        """
+        self.logger.debug("%s.setup()" % (self.__class__.__name__))
+        self.validate_policy_configuration()
 
     def tick(self):
         """
@@ -563,56 +552,107 @@ class Parallel(Composite):
 
         Yields:
             :class:`~py_trees.behaviour.Behaviour`: a reference to itself or one of its children
+
+        Raises:
+            RuntimeError: if the policy configuration was invalid
         """
-        if self.status != Status.RUNNING:
+        self.logger.debug("%s.tick()" % self.__class__.__name__)
+        self.validate_policy_configuration()
+
+        # reset
+        if self.status != common.Status.RUNNING:
+            self.logger.debug("%s.tick(): re-initialising" % self.__class__.__name__)
+            for child in self.children:
+                # reset the children, this ensures old SUCCESS/FAILURE status flags
+                # don't break the synchronisation logic below
+                if child.status != common.Status.INVALID:
+                    child.stop(common.Status.INVALID)
+            self.current_child = None
             # subclass (user) handling
             self.initialise()
-        self.logger.debug("%s.tick()" % self.__class__.__name__)
+
+        # nothing to do
+        if not self.children:
+            self.current_child = None
+            self.stop(common.Status.SUCCESS)
+            yield self
+            return
+
         # process them all first
         for child in self.children:
+            if self.policy.synchronise and child.status == common.Status.SUCCESS:
+                continue
             for node in child.tick():
                 yield node
-        # new_status = Status.SUCCESS if self.policy == common.ParallelPolicy.SUCCESS_ON_ALL else Status.RUNNING
-        new_status = Status.RUNNING
-        if any([c.status == Status.FAILURE for c in self.children]):
-            new_status = Status.FAILURE
-        else:
-            if self.policy == common.ParallelPolicy.SUCCESS_ON_ALL:
-                if all([c.status == Status.SUCCESS for c in self.children]):
-                    new_status = Status.SUCCESS
-            elif self.policy == common.ParallelPolicy.SUCCESS_ON_ONE:
-                if any([c.status == Status.SUCCESS for c in self.children]):
-                    new_status = Status.SUCCESS
-        # special case composite - this parallel may have children that are still running
-        # so if the parallel itself has reached a final status, then these running children
-        # need to be made aware of it too
-        if new_status != Status.RUNNING:
-            for child in self.children:
-                if child.status == Status.RUNNING:
-                    # interrupt it (exactly as if it was interrupted by a higher priority)
-                    child.stop(Status.INVALID)
+
+        # determine new status
+        new_status = common.Status.RUNNING
+        self.current_child = self.children[-1]
+        try:
+            failed_child = next(child for child in self.children if child.status == common.Status.FAILURE)
+            self.current_child = failed_child
+            new_status = common.Status.FAILURE
+        except StopIteration:
+            if type(self.policy) is common.ParallelPolicy.SuccessOnAll:
+                if all([c.status == common.Status.SUCCESS for c in self.children]):
+                    new_status = common.Status.SUCCESS
+                    self.current_child = self.children[-1]
+            elif type(self.policy) is common.ParallelPolicy.SuccessOnOne:
+                successful = [child for child in self.children if child.status == common.Status.SUCCESS]
+                if successful:
+                    new_status = common.Status.SUCCESS
+                    self.current_child = successful[-1]
+            elif type(self.policy) is common.ParallelPolicy.SuccessOnSelected:
+                if all([c.status == common.Status.SUCCESS for c in self.policy.children]):
+                    new_status = common.Status.SUCCESS
+                    self.current_child = self.policy.children[-1]
+            else:
+                raise RuntimeError("this parallel has been configured with an unrecognised policy [{}]".format(type(self.policy)))
+        # this parallel may have children that are still running
+        # so if the parallel itself has reached a final status, then
+        # these running children need to be terminated so they don't dangle
+        if new_status != common.Status.RUNNING:
             self.stop(new_status)
         self.status = new_status
         yield self
 
-    @property
-    def current_child(self):
+    def stop(self, new_status: common.Status=common.Status.INVALID):
         """
-        Have to check if there's anything actually running first.
+        For interrupts or any of the termination conditions, ensure that any
+        running children are stopped.
 
-        Returns:
-            :class:`~py_trees.behaviour.Behaviour`: the child that is currently running, or None
+        Args:
+            new_status : the composite is transitioning to this new status
         """
-        if self.status == Status.INVALID:
-            return None
-        if self.status == Status.FAILURE:
-            for child in self.children:
-                if child.status == Status.FAILURE:
-                    return child
-            # shouldn't get here
-        elif self.status == Status.SUCCESS and self.policy == common.ParallelPolicy.SUCCESS_ON_ONE:
-            for child in self.children:
-                if child.status == Status.SUCCESS:
-                    return child
-        else:
-            return self.children[-1]
+        # clean up dangling (running) children
+        for child in self.children:
+            if child.status == common.Status.RUNNING:
+                # interrupt it exactly as if it was interrupted by a higher priority
+                child.stop(common.Status.INVALID)
+        # only nec. thing here is to make sure the status gets set to INVALID if
+        # it was a higher priority interrupt (new_status == INVALID)
+        Composite.stop(self, new_status)
+
+    def validate_policy_configuration(self):
+        """
+        Policy configuration can be invalid if:
+
+        * Policy is SuccessOnSelected and no behaviours have been specified
+        * Policy is SuccessOnSelected and behaviours that are not children exist
+
+        Raises:
+            RuntimeError: if policy configuration was invalid
+        """
+        if type(self.policy) is common.ParallelPolicy.SuccessOnSelected:
+            if not self.policy.children:
+                error_message = ("policy SuccessOnSelected requires a non-empty "
+                                 "selection of children [{}]".format(self.name))
+                self.logger.error(error_message)
+                raise RuntimeError(error_message)
+            missing_children_names = [child.name for child in self.policy.children if child not in self.children]
+
+            if missing_children_names:
+                error_message = ("policy SuccessOnSelected has selected behaviours that are "
+                                 "not children of this parallel {}[{}]""".format(missing_children_names, self.name))
+                self.logger.error(error_message)
+                raise RuntimeError(error_message)

@@ -1,8 +1,10 @@
+#!/usr/bin/env python
 #
-# License: Yujin
+# License: BSD
+#   https://raw.githubusercontent.com/splintered-reality/py_trees/devel/LICENSE
 #
 ##############################################################################
-# Description
+# Documentation
 ##############################################################################
 
 """
@@ -18,12 +20,11 @@ import time
 
 from . import behaviour
 from . import common
-from . import meta
-
 
 ##############################################################################
 # Behaviours
 ##############################################################################
+
 
 class Timer(behaviour.Behaviour):
     """
@@ -41,18 +42,21 @@ class Timer(behaviour.Behaviour):
         name (:obj:`str`): name of the behaviour
         duration (:obj:`int`): length of time to run (in seconds)
 
+    Raises:
+        TypeError: if the provided duration is not a real number
+
     .. note::
         This succeeds the first time the behaviour is ticked **after** the expected
         finishing time.
 
     .. tip::
-        Use the :func:`~py_trees.meta.running_is_failure` decorator if you need
+        Use the :func:`~py_trees.decorators.RunningIsFailure` decorator if you need
         :data:`~py_trees.common.Status.FAILURE` until the timer finishes.
-
     """
     def __init__(self, name="Timer", duration=5.0):
         super(Timer, self).__init__(name)
-        assert isinstance(duration, numbers.Real), "Timer: duration should be int or float, but you passed in %s" % type(duration)
+        if not isinstance(duration, numbers.Real):
+            raise TypeError("Timer: duration should be int or float, but you passed in {}".format(type(duration)))
         self.duration = duration
         self.finish_time = None
         self.feedback_message = "duration set to '{0}'s".format(self.duration)
@@ -90,8 +94,3 @@ class Timer(behaviour.Behaviour):
         # clear the time if finishing with SUCCESS or in the case of an interruption from INVALID
         if new_status == common.Status.SUCCESS or new_status == common.Status.INVALID:
             self.finish_time = None
-
-
-@meta.oneshot
-class OneshotTimer(Timer):
-    pass

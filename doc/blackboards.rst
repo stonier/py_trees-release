@@ -6,6 +6,8 @@ Blackboards
 .. automodule:: py_trees.blackboard
     :noindex:
 
-.. autoclass:: py_trees.blackboard.Blackboard
+The primary user-facing interface with the blackboard is via the Client.
+
+.. autoclass:: py_trees.blackboard.Client
     :noindex:
 
