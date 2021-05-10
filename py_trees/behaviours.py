@@ -14,6 +14,7 @@ A library of fundamental behaviours for use.
 # Imports
 ##############################################################################
 
+import copy
 import functools
 import operator
 import typing
@@ -114,6 +115,37 @@ class Periodic(behaviour.Behaviour):
         else:
             self.feedback_message = "constant"
         return self.response
+
+
+class StatusSequence(behaviour.Behaviour):
+    """
+    Cycle through the specified sequence of states.
+
+    Args:
+        name: name of the behaviour
+        sequence: list of status values to cycle through
+        eventually: status to use eventually, None to re-cycle the sequence
+    """
+    def __init__(
+            self,
+            name: str,
+            sequence: typing.List[common.Status],
+            eventually: typing.Optional[common.Status]
+    ):
+        super(StatusSequence, self).__init__(name)
+        self.sequence = sequence
+        self.eventually = eventually
+        self.current_sequence = copy.copy(sequence)
+
+    def update(self):
+        if self.current_sequence:
+            status = self.current_sequence.pop(0)
+        elif self.eventually is not None:
+            status = self.eventually
+        else:
+            self.current_sequence = copy.copy(self.sequence)
+            status = self.current_sequence.pop(0)
+        return status
 
 
 class SuccessEveryN(behaviour.Behaviour):
@@ -266,6 +298,58 @@ class Count(behaviour.Behaviour):
 ##############################################################################
 # Blackboard Behaviours
 ##############################################################################
+
+
+class BlackboardToStatus(behaviour.Behaviour):
+    """
+    This behaviour reverse engineers the :class:`~py_trees.decorators.StatusToBlackboard`
+    decorator. Used in conjuction with that decorator, this behaviour can be used to
+    reflect the status of a decision elsewhere in the tree.
+
+    .. note::
+
+       A word of caution. The consequences of a behaviour's status should be discernable
+       upon inspection of the tree graph. If using StatusToBlackboard
+       and BlackboardToStatus to reflect a behaviour's status across a tree,
+       this is no longer true. The graph of the tree communicates the local consequences,
+       but not the reflected consequences at the point BlackboardToStatus is used. A
+       recommendation, use this class only where other options are infeasible or impractical.
+
+    Args:
+        variable_name: name of the variable look for, may be nested, e.g. battery.percentage
+        name: name of the behaviour
+
+    Raises:
+        KeyError: if the variable doesn't exist
+        TypeError: if the variable isn't of type :py:data:`~py_trees.common.Status`
+    """
+    def __init__(
+        self,
+        variable_name: str,
+        name: str=common.Name.AUTO_GENERATED
+    ):
+        super().__init__(name=name)
+        name_components = variable_name.split('.')
+        self.key = name_components[0]
+        self.key_attributes = '.'.join(name_components[1:])  # empty string if no other parts
+        self.variable_name = variable_name
+        self.blackboard = self.attach_blackboard_client()
+        self.blackboard.register_key(key=self.key, access=common.Access.READ)
+
+    def update(self) -> common.Status:
+        """
+        Check for existence.
+
+        Returns:
+             :data:`~py_trees.common.Status.SUCCESS` if key found, :data:`~py_trees.common.Status.FAILURE` otherwise.
+        """
+        self.logger.debug("%s.update()" % self.__class__.__name__)
+        # raises a KeyError if the variable doesn't exist
+        status = self.blackboard.get(self.variable_name)
+        if type(status) != common.Status:
+            raise TypeError(f"{self.variable_name} is not of type py_trees.common.Status")
+        self.feedback_message = f"{self.variable_name}: {status}"
+        return status
 
 
 class CheckBlackboardVariableExists(behaviour.Behaviour):

@@ -42,9 +42,12 @@ unicode_symbols = {
     'left_right_arrow': console.left_right_arrow,
     'bold': console.bold,
     'bold_reset': console.reset,
+    'memory': console.circled_m,
+    'sequence_with_memory': u'{-}',
+    'selector_with_memory': u'{o}',
     composites.Sequence: u'[-]',
     composites.Selector: u'[o]',
-    composites.Parallel: u'[' + console.double_vertical_line + u']',
+    composites.Parallel: u'/_/',
     decorators.Decorator: u'-^-',
     behaviour.Behaviour: u'-->',
     common.Status.SUCCESS: console.green + console.check_mark + console.reset,
@@ -61,9 +64,12 @@ ascii_symbols = {
     'left_right_arrow': '<->',
     'bold': console.bold,
     'bold_reset': console.reset,
+    'memory': 'M',
+    'sequence_with_memory': '{-}',
+    'selector_with_memory': '{o}',
     composites.Sequence: "[-]",
     composites.Selector: "[o]",
-    composites.Parallel: "[||]",
+    composites.Parallel: "/_/",
     decorators.Decorator: "-^-",
     behaviour.Behaviour: "-->",
     common.Status.SUCCESS: console.green + 'o' + console.reset,
@@ -79,9 +85,12 @@ xhtml_symbols = {
     'left_right_arrow': '<text>&#x2194;</text>',
     'bold': '<b>',
     'bold_reset': '</b>',
+    'memory': '<text>&#x24C2;</text>',
+    'sequence_with_memory': '<text>{-}</text>',
+    'selector_with_memory': '<text>{o}</text>',
     composites.Sequence: '<text>[-]</text>',
     composites.Selector: '<text>[o]</text>',
-    composites.Parallel: '<text style="color:green;">[&#x2016;]</text>',  # c.f. console.double_vertical_line
+    composites.Parallel: '<text style="color:green;">/_/</text>',
     decorators.Decorator: '<text>-^-</text>',
     behaviour.Behaviour: '<text>--></text>',
     common.Status.SUCCESS: '<text style="color:green;">&#x2713;</text>',  # c.f. console.check_mark
@@ -90,6 +99,7 @@ xhtml_symbols = {
     common.Status.RUNNING: '<text style="color:blue;">*</text>'
 }
 """Symbols for embedding in html."""
+
 
 ##############################################################################
 # Trees
@@ -131,12 +141,14 @@ def _generate_text_tree(
     tip_id = root.tip().id if root.tip() else None
 
     def get_behaviour_type(b):
-        for behaviour_type in [composites.Sequence,
-                               composites.Selector,
-                               composites.Parallel,
-                               decorators.Decorator]:
-            if isinstance(b, behaviour_type):
-                return behaviour_type
+        if isinstance(b, composites.Parallel):
+            return composites.Parallel
+        if isinstance(b, decorators.Decorator):
+            return decorators.Decorator
+        if isinstance(b, composites.Sequence):
+            return "sequence_with_memory" if b.memory else composites.Sequence
+        if isinstance(b, composites.Selector):
+            return "selector_with_memory" if b.memory else composites.Selector
         return behaviour.Behaviour
 
     def style(s, font_weight=False):
@@ -296,7 +308,7 @@ def unicode_tree(
         visited,
         previously_visited,
         indent,
-        symbols=ascii_symbols
+        symbols=unicode_symbols
     )
     return lines
 
@@ -408,11 +420,36 @@ def dot_tree(
         This extracts a more detailed string (when applicable) to append to
         that which will be used for the node name.
         """
-        node_label = node_name
-        if behaviour.verbose_info_string():
-            node_label += "\n{}".format(behaviour.verbose_info_string())
+        # Custom handling of composites provided by this library. Not currently
+        # providing a generic mechanism for others to customise visualisations
+        # for their derived composites.
+        prefix = ""
+        policy = ""
+        if isinstance(behaviour, composites.Composite):
+            try:
+                if behaviour.memory:
+                    prefix += console.circled_m
+            except AttributeError:
+                pass
+            try:
+                if behaviour.policy.synchronise:
+                    prefix += console.lightning_bolt
+            except AttributeError:
+                pass
+            try:
+                policy = behaviour.policy.__class__.__name__
+            except AttributeError:
+                pass
+            try:
+                indices = [str(behaviour.children.index(child)) for child in behaviour.policy.children]
+                policy += "({})".format(', '.join(sorted(indices)))
+            except AttributeError:
+                pass
+        node_label = f"{prefix} {node_name}" if prefix else node_name
+        if policy:
+            node_label += f"\n{str(policy)}"
         if with_qualified_names:
-            node_label += "\n({})".format(utilities.get_fully_qualified_name(behaviour))
+            node_label += f"\n({utilities.get_fully_qualified_name(behaviour)})"
         return node_label
 
     fontsize = 9
@@ -424,8 +461,9 @@ def dot_tree(
     graph.set_node_defaults(fontname='times-roman')
     graph.set_edge_defaults(fontname='times-roman')
     (node_shape, node_colour, node_font_colour) = get_node_attributes(root)
+    node_name = root.name
     node_root = pydot.Node(
-        root.name,
+        name=root.name,
         label=get_node_label(root.name, root),
         shape=node_shape,
         style="filled",
@@ -491,20 +529,6 @@ def dot_tree(
             label="Blackboard",
             rank="sink",
         )
-        blackboard_keys = pydot.Node(
-            "BlackboardKeys",
-            label="Keys",
-            shape='box'
-        )
-        root_dummy_edge = pydot.Edge(
-            root.name,
-            "BlackboardKeys",
-            color="magenta",
-            style="invis",
-            constraint=True,
-        )
-        subgraph.add_node(blackboard_keys)
-        graph.add_edge(root_dummy_edge)
 
         for unique_identifier, client in clients.items():
             if unique_identifier not in blackboard_id_name_map:
