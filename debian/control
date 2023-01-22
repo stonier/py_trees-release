@@ -1,0 +1,12 @@
+Source: ros-rolling-py-trees
+Section: misc
+Priority: optional
+Maintainer: Daniel Stonier <d.stonier@gmail.com>
+Build-Depends: debhelper (>= 9.0.0), python3-setuptools, ros-rolling-ros-workspace, python3-all, python3-setuptools, dh-python
+Homepage: https://py-trees.readthedocs.io/en/release-1.4.x
+Standards-Version: 3.9.2
+
+Package: ros-rolling-py-trees
+Architecture: any
+Depends: ${python3:Depends}, ${misc:Depends}, python3-pydot, ros-rolling-ros-workspace
+Description: Pythonic implementation of behaviour trees.
