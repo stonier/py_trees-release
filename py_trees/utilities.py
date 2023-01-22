@@ -15,6 +15,8 @@ Assorted utility functions.
 # Imports
 ##############################################################################
 
+from __future__ import annotations
+
 import multiprocessing
 import os
 import re
@@ -25,11 +27,21 @@ import typing
 # Python Helpers
 ##############################################################################
 
+C = typing.TypeVar('C', bound=typing.Callable)
 
-def static_variables(**kwargs):
+# TODO: This currently doesn't work well with mypy - dynamic typing
+# is not its thing. Need to find a way to make this work without
+# creating errors on the user side. In the docstring's example, usage
+# of the static 'counter' variable results in:
+#
+# error: "Callable[[], Any]" has no attribute "counter"  [attr-defined]
+
+
+def static_variables(
+    **kwargs: typing.Any
+) -> typing.Callable[[C], C]:
     """
-    This is a decorator that can be used with python methods to attach
-    initialised static variables to the method.
+    Attach initialised static variables to a python method.
 
     .. code-block:: python
 
@@ -38,7 +50,9 @@ def static_variables(**kwargs):
            foo.counter += 1
            print("Counter: {}".format(foo.counter))
     """
-    def decorate(func):
+    def decorate(
+        func: C
+    ) -> C:
         for k in kwargs:
             setattr(func, k, kwargs[k])
         return func
@@ -48,22 +62,21 @@ def static_variables(**kwargs):
 @static_variables(primitives={bool, str, int, float})
 def is_primitive(incoming: typing.Any) -> bool:
     """
-    Check if an incoming argument is a primitive type with no esoteric
-    accessors (e.g. class attributes or container [] accessors.
+    Check if an incoming argument is a primitive type with no esoteric accessors.
+
+    That is, it has no class attributes or container style [] accessors.
 
     Args:
         incoming: the instance to check
     Returns:
         True or false, depending on the check against the reserved primitives
     """
-    return type(incoming) in is_primitive.primitives
+    return type(incoming) in is_primitive.primitives  # type: ignore[attr-defined]
 
 
 def truncate(original: str, length: int) -> str:
     """
-    Provide an elided version of the string for which the last three
-    characters are dots if the original string does not fit within the
-    specified length.
+    Provide an elided (...) version of a string if it is longer than desired.
 
     Args:
         original: string to elide
@@ -78,12 +91,12 @@ def truncate(original: str, length: int) -> str:
 
 
 class Process(multiprocessing.Process):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: typing.Any, **kwargs: typing.Any):
         multiprocessing.Process.__init__(self, *args, **kwargs)
         self._pconn, self._cconn = multiprocessing.Pipe()
         self._exception = None
 
-    def run(self):
+    def run(self) -> None:
         try:
             multiprocessing.Process.run(self)
             self._cconn.send(None)
@@ -92,23 +105,23 @@ class Process(multiprocessing.Process):
             self._cconn.send((e, tb))
 
     @property
-    def exception(self):
+    def exception(self) -> typing.Any:
         if self._pconn.poll():
             self._exception = self._pconn.recv()
         return self._exception
 
 
-def which(program):
-    '''
-    Wrapper around the command line 'which' program.
+def which(program: str) -> typing.Optional[str]:
+    """
+    Call the command line 'which' tool (convenience wrapper).
 
     Args:
-        program (:obj:`str`): name of the program to find.
+        program: name of the program to find.
 
     Returns:
-        :obj:`str`: path to the program or None if it doesnt exist.
-    '''
-    def is_exe(fpath):
+        path to the program or None if it doesnt exist.
+    """
+    def is_exe(fpath: str) -> bool:
         return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
 
     fpath, unused_fname = os.path.split(program)
@@ -127,10 +140,15 @@ def which(program):
 
 def get_valid_filename(s: str) -> str:
     """
-    Return the given string converted to a string that can be used for a clean
-    filename (without extension). Remove leading and trailing spaces; convert
-    other spaces and newlines to underscores; and remove anything that is not
-    an alphanumeric, dash, underscore, or dot.
+    Clean up and style a string so that it can be used as a filename.
+
+    This is valid only from the perspective of the py_trees package. It does
+    place a few extra constraints on strings to keep string handling and
+    manipulation complexities to a minimum so that sanity prevails.
+
+    * Removes leading and trailing spaces
+    * Convert other spaces and newlines to underscores
+    * Remove anything that is not an alphanumeric, dash, underscore, or dot
 
     .. code-block:: python
 
@@ -149,9 +167,10 @@ def get_valid_filename(s: str) -> str:
 
 def get_fully_qualified_name(instance: object) -> str:
     """
-    Get at the fully qualified name of an object, e.g.
-    an instance of a :class:`~py_trees.composites.Sequence`
-    becomes 'py_trees.composites.Sequence'.
+    Retrieve the fully qualified name of an object.
+
+    For example, an instance of
+    :class:`~py_trees.composites.Sequence` becomes 'py_trees.composites.Sequence'.
 
     Args:
         instance (:obj:`object`): an instance of any class

@@ -7,9 +7,10 @@
 # Imports
 ##############################################################################
 
-import nose
+import typing
 
 import py_trees
+import py_trees.tests
 import py_trees.console as console
 
 ##############################################################################
@@ -17,26 +18,31 @@ import py_trees.console as console
 ##############################################################################
 
 
-def create_tasks():
+def create_tasks() -> typing.List[py_trees.behaviour.Behaviour]:
     return [
-        py_trees.behaviours.Count(
+        py_trees.behaviours.StatusQueue(
             name="R-R-S",
-            fail_until=0,
-            running_until=2,
-            success_until=100,
-            reset=True
+            queue=[
+                py_trees.common.Status.RUNNING,
+                py_trees.common.Status.RUNNING,
+                py_trees.common.Status.SUCCESS,
+            ],
+            eventually=None
         ),
-        py_trees.behaviours.Count(
+        py_trees.behaviours.StatusQueue(
             name="R-S",
-            fail_until=0,
-            running_until=1,
-            success_until=100,
-            reset=True
-        ),
+            queue=[py_trees.common.Status.RUNNING],
+            eventually=py_trees.common.Status.SUCCESS
+        )
     ]
 
 
-def impl_eternal_guard_checks(name, root, eternal_guard, tasks):
+def impl_eternal_guard_checks(
+    name: str,
+    root: py_trees.behaviour.Behaviour,
+    eternal_guard: py_trees.behaviour.Behaviour,
+    tasks: typing.List[py_trees.behaviour.Behaviour]
+) -> None:
     console.banner(name)
 
     py_trees.tests.print_assert_banner()
@@ -44,93 +50,80 @@ def impl_eternal_guard_checks(name, root, eternal_guard, tasks):
     py_trees.tests.tick_tree(root, 1, 1, print_snapshot=True)
     print(console.green + "Tick 1: first guard fails, eternal guard fails" + console.reset)
     py_trees.tests.print_assert_details("eternal_guard", py_trees.common.Status.FAILURE, eternal_guard.status)
-    assert(eternal_guard.status == py_trees.common.Status.FAILURE)
+    assert eternal_guard.status == py_trees.common.Status.FAILURE
 
     py_trees.tests.tick_tree(root, 2, 2, print_snapshot=True)
     print(console.green + "Tick 2: guard checks ok, task sequence is running" + console.reset)
     py_trees.tests.print_assert_details("eternal_guard", py_trees.common.Status.RUNNING, eternal_guard.status)
-    assert(eternal_guard.status == py_trees.common.Status.RUNNING)
+    assert eternal_guard.status == py_trees.common.Status.RUNNING
 
-    py_trees.tests.tick_tree(root, 3, 5, print_snapshot=True)
+    py_trees.tests.tick_tree(root, 3, 3, print_snapshot=True)
+    py_trees.tests.tick_tree(root, 4, 4, print_snapshot=True)
+    py_trees.tests.tick_tree(root, 5, 5, print_snapshot=True)
     print(console.green + "Tick 5: guards still ok, task sequence finished" + console.reset)
     py_trees.tests.print_assert_details("eternal_guard", py_trees.common.Status.SUCCESS, eternal_guard.status)
-    assert(eternal_guard.status == py_trees.common.Status.SUCCESS)
+    assert eternal_guard.status == py_trees.common.Status.SUCCESS
 
-    py_trees.tests.tick_tree(root, 6, 7, print_snapshot=True)
+    py_trees.tests.tick_tree(root, 6, 6, print_snapshot=True)
+    py_trees.tests.tick_tree(root, 7, 7, print_snapshot=True)
     print(console.green + "Tick 7: tasks are running again, but the first guard fails" + console.reset)
     py_trees.tests.print_assert_details("eternal_guard", py_trees.common.Status.FAILURE, eternal_guard.status)
-    assert(eternal_guard.status == py_trees.common.Status.FAILURE)
+    assert eternal_guard.status == py_trees.common.Status.FAILURE
     for task in tasks:
         py_trees.tests.print_assert_details(task.name, py_trees.common.Status.INVALID, task.status)
-        assert(task.status == py_trees.common.Status.INVALID)
+        assert task.status == py_trees.common.Status.INVALID
 
 
-def generate_eternal_guard():
-    conditions = [
-        py_trees.behaviours.Count(
-            name="F-R-S-S-S-S-F",
-            fail_until=1,
-            running_until=2,
-            success_until=6,
-            reset=False
-        ),
-        py_trees.behaviours.Success(name="Success")
-    ]
-    tasks = create_tasks()
-    task_sequence = py_trees.composites.Sequence("Task Sequence")
-    task_sequence.add_children(tasks)
-    eternal_guard = py_trees.idioms.eternal_guard(
-        name="Eternal Guard",
-        conditions=conditions,
-        subtree=task_sequence
+def test_eternal_guard_sequence() -> None:
+    """
+    Test with a sequence that has no-memory.
+    """
+    root = py_trees.composites.Selector(name="Root", memory=False)
+    eternal_guard = py_trees.composites.Sequence(name="Eternal Guard", memory=False)
+    conditions = py_trees.composites.Parallel(
+        name="Conditions",
+        policy=py_trees.common.ParallelPolicy.SuccessOnOne()
     )
-    return eternal_guard, tasks
-
-
-def test_eternal_guard_idiom():
-    root = py_trees.composites.Selector(name="Root")
-    eternal_guard, tasks = generate_eternal_guard()
-    idle = py_trees.behaviours.Running()
+    frssssf = py_trees.behaviours.StatusQueue(
+            name="F-R-S-S-S-S-F",
+            queue=[
+                py_trees.common.Status.FAILURE,
+                py_trees.common.Status.RUNNING,
+                py_trees.common.Status.SUCCESS,
+                py_trees.common.Status.SUCCESS,
+                py_trees.common.Status.SUCCESS,
+                py_trees.common.Status.SUCCESS,
+                py_trees.common.Status.FAILURE,
+            ],
+            eventually=py_trees.common.Status.FAILURE
+        )
+    success = py_trees.behaviours.Success(name="Success")
+    task_sequence = py_trees.composites.Sequence(name="Task Sequence", memory=True)
+    tasks = create_tasks()
+    idle = py_trees.behaviours.Running(name="Running")
 
     root.add_children([eternal_guard, idle])
+    eternal_guard.add_children([conditions, task_sequence])
+    task_sequence.add_children(tasks)
+    conditions.add_children([frssssf, success])
 
     impl_eternal_guard_checks(
         name="Eternal Guard Idiom",
         root=root,
         eternal_guard=eternal_guard,
-        tasks=tasks
+        tasks=tasks,
     )
 
 
-def test_eternal_guard_unique_names():
-    py_trees.tests.clear_blackboard()
-    blackboard = py_trees.blackboard.Client()
-    for key in {"eternal_guard_condition_1", "eternal_guard_condition_2"}:
-        blackboard.register_key(key=key, access=py_trees.common.Access.READ)
-    for key in {"eternal_guard_condition_1"}:
-        blackboard.register_key(key=key, access=py_trees.common.Access.WRITE)
-    message = "Ha, stole it"
-    blackboard.eternal_guard_condition_1 = message
-    root = py_trees.composites.Selector(name="Root")
-    eternal_guard, unused_tasks = generate_eternal_guard()
-    root.add_children([eternal_guard])
-    # tick once, get variables on the blackboard
-    py_trees.tests.tick_tree(root, 1, 1, print_snapshot=True)
-    assert(blackboard.get("eternal_guard_condition_1") == message)  # wasn't overwritten
-    with nose.tools.assert_raises_regexp(KeyError, "exist"):
-        print("Expecting a KeyError with substring 'yet exist'")
-        unused = blackboard.eternal_guard_condition_2
+def test_eternal_guard_decorator() -> None:
+    root = py_trees.composites.Selector(name="Root", memory=False)
 
-
-def test_eternal_guard_decorator():
-    root = py_trees.composites.Selector(name="Root")
-
-    def condition_success():
+    def condition_success() -> bool:
         return True
 
-    # emulate py_trees.behaviours.Count
+    # emulate py_trees.behaviours.StatusQueue
     class Count(object):
-        def __init__(self):
+        def __init__(self) -> None:
             self.results = [
                 py_trees.common.Status.FAILURE,
                 py_trees.common.Status.SUCCESS,
@@ -141,7 +134,10 @@ def test_eternal_guard_decorator():
                 py_trees.common.Status.FAILURE,
             ]
 
-        def condition(self, blackboard):
+        def condition(
+            self,
+            blackboard: py_trees.blackboard.Client,
+        ) -> py_trees.common.Status:
             try:
                 new_result = self.results.pop(0)
                 return new_result
@@ -149,9 +145,9 @@ def test_eternal_guard_decorator():
                 return py_trees.common.Status.FAILURE
 
     tasks = create_tasks()
-    task_sequence = py_trees.composites.Sequence("Task Sequence")
+    task_sequence = py_trees.composites.Sequence(name="Task Sequence", memory=True)
     task_sequence.add_children(tasks)
-    idle = py_trees.behaviours.Running()
+    idle = py_trees.behaviours.Running(name="Running")
     nested_guard = py_trees.decorators.EternalGuard(
         name="Nested Guard",
         child=task_sequence,

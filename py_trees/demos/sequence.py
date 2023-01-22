@@ -8,6 +8,8 @@
 ##############################################################################
 
 """
+Demonstrates sequences in action.
+
 .. argparse::
    :module: py_trees.demos.sequence
    :func: command_line_argument_parser
@@ -23,10 +25,11 @@
 ##############################################################################
 
 import argparse
-import py_trees
 import sys
 import time
+import typing
 
+import py_trees
 import py_trees.console as console
 
 ##############################################################################
@@ -34,15 +37,14 @@ import py_trees.console as console
 ##############################################################################
 
 
-def description():
+def description() -> str:
     content = "Demonstrates sequences in action.\n\n"
     content += "A sequence is populated with 2-tick jobs that are allowed to run through to\n"
     content += "completion.\n"
 
     if py_trees.console.has_colours:
         banner_line = console.green + "*" * 79 + "\n" + console.reset
-        s = "\n"
-        s += banner_line
+        s = banner_line
         s += console.bold_white + "Sequences".center(79) + "\n" + console.reset
         s += banner_line
         s += "\n"
@@ -54,14 +56,14 @@ def description():
     return s
 
 
-def epilog():
+def epilog() -> typing.Optional[str]:
     if py_trees.console.has_colours:
         return console.cyan + "And his noodly appendage reached forth to tickle the blessed...\n" + console.reset
     else:
         return None
 
 
-def command_line_argument_parser():
+def command_line_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=description(),
                                      epilog=epilog(),
                                      formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -70,14 +72,18 @@ def command_line_argument_parser():
     return parser
 
 
-def create_root():
-    root = py_trees.composites.Sequence("Sequence")
+def create_root() -> py_trees.behaviour.Behaviour:
+    root = py_trees.composites.Sequence(name="Sequence", memory=True)
     for action in ["Action 1", "Action 2", "Action 3"]:
-        success_after_two = py_trees.behaviours.Count(name=action,
-                                                      fail_until=0,
-                                                      running_until=1,
-                                                      success_until=10)
-        root.add_child(success_after_two)
+        rssss = py_trees.behaviours.StatusQueue(
+            name=action,
+            queue=[
+                py_trees.common.Status.RUNNING,
+                py_trees.common.Status.SUCCESS,
+            ],
+            eventually=py_trees.common.Status.SUCCESS
+        )
+        root.add_child(rssss)
     return root
 
 
@@ -85,10 +91,8 @@ def create_root():
 # Main
 ##############################################################################
 
-def main():
-    """
-    Entry point for the demo script.
-    """
+def main() -> None:
+    """Entry point for the demo script."""
     args = command_line_argument_parser().parse_args()
     print(description())
     py_trees.logging.level = py_trees.logging.Level.DEBUG

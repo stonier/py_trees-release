@@ -8,6 +8,8 @@
 ##############################################################################
 
 """
+Demonstrates usage of blackboard remappings.
+
 .. argparse::
    :module: py_trees.demos.blackboard_remappings
    :func: command_line_argument_parser
@@ -24,9 +26,9 @@
 ##############################################################################
 
 import argparse
-import py_trees
 import typing
 
+import py_trees
 import py_trees.console as console
 
 ##############################################################################
@@ -34,15 +36,14 @@ import py_trees.console as console
 ##############################################################################
 
 
-def description():
+def description() -> str:
     content = "Demonstrates usage of blackbord remappings.\n"
     content += "\n"
     content += "Demonstration is via an exemplar behaviour making use of remappings..\n"
 
     if py_trees.console.has_colours:
         banner_line = console.green + "*" * 79 + "\n" + console.reset
-        s = "\n"
-        s += banner_line
+        s = banner_line
         s += console.bold_white + "Blackboard".center(79) + "\n" + console.reset
         s += banner_line
         s += "\n"
@@ -54,14 +55,14 @@ def description():
     return s
 
 
-def epilog():
+def epilog() -> typing.Optional[str]:
     if py_trees.console.has_colours:
         return console.cyan + "And his noodly appendage reached forth to tickle the blessed...\n" + console.reset
     else:
         return None
 
 
-def command_line_argument_parser():
+def command_line_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=description(),
                                      epilog=epilog(),
                                      formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -70,9 +71,8 @@ def command_line_argument_parser():
 
 
 class Remap(py_trees.behaviour.Behaviour):
-    """
-    Custom writer that submits a more complicated variable to the blackboard.
-    """
+    """Custom writer that submits a more complicated variable to the blackboard."""
+
     def __init__(self, name: str, remap_to: typing.Dict[str, str]):
         super().__init__(name=name)
         self.logger.debug("%s.__init__()" % (self.__class__.__name__))
@@ -83,9 +83,10 @@ class Remap(py_trees.behaviour.Behaviour):
             remap_to=remap_to["/foo/bar/wow"]
         )
 
-    def update(self):
-        """
-        Write a dictionary to the blackboard and return :data:`~py_trees.common.Status.SUCCESS`.
+    def update(self) -> py_trees.common.Status:
+        """Write a dictionary to the blackboard.
+
+        This beaviour always returns :data:`~py_trees.common.Status.SUCCESS`.
         """
         self.logger.debug("%s.update()" % (self.__class__.__name__))
         self.blackboard.foo.bar.wow = "colander"
@@ -97,11 +98,9 @@ class Remap(py_trees.behaviour.Behaviour):
 ##############################################################################
 
 
-def main():
-    """
-    Entry point for the demo script.
-    """
-    args = command_line_argument_parser().parse_args()
+def main() -> None:
+    """Entry point for the demo script."""
+    _ = command_line_argument_parser().parse_args()  # configuration only, no arg processing
     print(description())
     py_trees.logging.level = py_trees.logging.Level.DEBUG
     py_trees.blackboard.Blackboard.enable_activity_stream(maximum_size=100)

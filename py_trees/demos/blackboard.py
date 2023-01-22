@@ -8,6 +8,8 @@
 ##############################################################################
 
 """
+Demonstrates blackboard usage.
+
 .. argparse::
    :module: py_trees.demos.blackboard
    :func: command_line_argument_parser
@@ -29,9 +31,10 @@
 
 import argparse
 import operator
-import py_trees
 import sys
+import typing
 
+import py_trees
 import py_trees.console as console
 
 ##############################################################################
@@ -39,7 +42,7 @@ import py_trees.console as console
 ##############################################################################
 
 
-def description():
+def description() -> str:
     content = "Demonstrates usage of the blackboard and related behaviours.\n"
     content += "\n"
     content += "A sequence is populated with a few behaviours that exercise\n"
@@ -47,8 +50,7 @@ def description():
 
     if py_trees.console.has_colours:
         banner_line = console.green + "*" * 79 + "\n" + console.reset
-        s = "\n"
-        s += banner_line
+        s = banner_line
         s += console.bold_white + "Blackboard".center(79) + "\n" + console.reset
         s += banner_line
         s += "\n"
@@ -60,14 +62,14 @@ def description():
     return s
 
 
-def epilog():
+def epilog() -> typing.Optional[str]:
     if py_trees.console.has_colours:
         return console.cyan + "And his noodly appendage reached forth to tickle the blessed...\n" + console.reset
     else:
         return None
 
 
-def command_line_argument_parser():
+def command_line_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=description(),
                                      epilog=epilog(),
                                      formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -83,21 +85,19 @@ def command_line_argument_parser():
 
 
 class Nested(object):
-    """
-    A more complex object to interact with on the blackboard.
-    """
-    def __init__(self):
+    """A more complex object to interact with on the blackboard."""
+
+    def __init__(self) -> None:
         self.foo = "bar"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str({"foo": self.foo})
 
 
 class BlackboardWriter(py_trees.behaviour.Behaviour):
-    """
-    Custom writer that submits a more complicated variable to the blackboard.
-    """
-    def __init__(self, name="Writer"):
+    """Write some more interesting / complex types to the blacbkoard."""
+
+    def __init__(self, name: str = "Writer"):
         super().__init__(name=name)
         self.blackboard = self.attach_blackboard_client()
         self.blackboard.register_key(key="dude", access=py_trees.common.Access.READ)
@@ -105,17 +105,18 @@ class BlackboardWriter(py_trees.behaviour.Behaviour):
 
         self.logger.debug("%s.__init__()" % (self.__class__.__name__))
 
-    def update(self):
-        """
-        Write a dictionary to the blackboard and return :data:`~py_trees.common.Status.SUCCESS`.
+    def update(self) -> py_trees.common.Status:
+        """Write a dictionary to the blackboard.
+
+        This beaviour always returns :data:`~py_trees.common.Status.SUCCESS`.
         """
         self.logger.debug("%s.update()" % (self.__class__.__name__))
         try:
-            unused = self.blackboard.dude
+            _ = self.blackboard.dude
         except KeyError:
             pass
         try:
-            unused = self.blackboard.dudette
+            _ = self.blackboard.dudette
         except AttributeError:
             pass
         try:
@@ -132,11 +133,14 @@ class BlackboardWriter(py_trees.behaviour.Behaviour):
 
 
 class ParamsAndState(py_trees.behaviour.Behaviour):
+    """Parameter and state storage on the blackboard.
+
+    This behaviour demonstrates the usage of namespaces and
+    multiple clients to perform getting and setting of
+    parameters and state in a concise and convenient manner.
     """
-    A more esotoric use of multiple blackboards in a behaviour to represent
-    storage of parameters and state.
-    """
-    def __init__(self, name="ParamsAndState"):
+
+    def __init__(self, name: str = "ParamsAndState"):
         super().__init__(name=name)
         # namespaces can include the separator or may leave it out
         # they can also be nested, e.g. /agent/state, /agent/parameters
@@ -151,13 +155,13 @@ class ParamsAndState(py_trees.behaviour.Behaviour):
             access=py_trees.common.Access.WRITE
         )
 
-    def initialise(self):
+    def initialise(self) -> None:
         try:
             self.state.current_speed = self.parameters.default_speed
         except KeyError as e:
             raise RuntimeError("parameter 'default_speed' not found [{}]".format(str(e)))
 
-    def update(self):
+    def update(self) -> py_trees.common.Status:
         if self.state.current_speed > 40.0:
             return py_trees.common.Status.SUCCESS
         else:
@@ -165,10 +169,13 @@ class ParamsAndState(py_trees.behaviour.Behaviour):
             return py_trees.common.Status.RUNNING
 
 
-def create_root():
-    root = py_trees.composites.Sequence("Blackboard Demo")
+def create_root() -> py_trees.behaviour.Behaviour:
+    root = py_trees.composites.Sequence(name="Blackboard Demo", memory=True)
     set_blackboard_variable = py_trees.behaviours.SetBlackboardVariable(
-        name="Set Nested", variable_name="nested", variable_value=Nested()
+        name="Set Nested",
+        variable_name="nested",
+        variable_value=Nested(),
+        overwrite=True
     )
     write_blackboard_variable = BlackboardWriter(name="Writer")
     check_blackboard_variable = py_trees.behaviours.CheckBlackboardVariableValue(
@@ -193,17 +200,15 @@ def create_root():
 ##############################################################################
 
 
-def main():
-    """
-    Entry point for the demo script.
-    """
+def main() -> None:
+    """Entry point for the demo script."""
     args = command_line_argument_parser().parse_args()
     print(description())
     py_trees.logging.level = py_trees.logging.Level.DEBUG
     py_trees.blackboard.Blackboard.enable_activity_stream(maximum_size=100)
     blackboard = py_trees.blackboard.Client(name="Configuration")
     blackboard.register_key(key="dude", access=py_trees.common.Access.WRITE)
-    blackboard.register_key(key="/parameters/default_speed", access=py_trees.common.Access.WRITE)
+    blackboard.register_key(key="/parameters/default_speed", access=py_trees.common.Access.EXCLUSIVE_WRITE)
     blackboard.dude = "Bob"
     blackboard.parameters.default_speed = 30.0
 

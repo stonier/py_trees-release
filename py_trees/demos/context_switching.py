@@ -8,6 +8,8 @@
 ##############################################################################
 
 """
+Demonstrate the context switching design pattern.
+
 .. argparse::
    :module: py_trees.demos.context_switching
    :func: command_line_argument_parser
@@ -23,10 +25,11 @@
 ##############################################################################
 
 import argparse
-import py_trees
 import sys
 import time
+import typing
 
+import py_trees
 import py_trees.console as console
 
 ##############################################################################
@@ -34,7 +37,7 @@ import py_trees.console as console
 ##############################################################################
 
 
-def description():
+def description() -> str:
     content = "Demonstrates context switching with parallels and sequences.\n"
     content += "\n"
     content += "A context switching behaviour is run in parallel with a work sequence.\n"
@@ -46,8 +49,7 @@ def description():
     content += "this parallel subtree.\n"
     if py_trees.console.has_colours:
         banner_line = console.green + "*" * 79 + "\n" + console.reset
-        s = "\n"
-        s += banner_line
+        s = banner_line
         s += console.bold_white + "Context Switching".center(79) + "\n" + console.reset
         s += banner_line
         s += "\n"
@@ -59,14 +61,14 @@ def description():
     return s
 
 
-def epilog():
+def epilog() -> typing.Optional[str]:
     if py_trees.console.has_colours:
         return console.cyan + "And his noodly appendage reached forth to tickle the blessed...\n" + console.reset
     else:
         return None
 
 
-def command_line_argument_parser():
+def command_line_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=description(),
                                      epilog=epilog(),
                                      formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -77,7 +79,9 @@ def command_line_argument_parser():
 
 class ContextSwitch(py_trees.behaviour.Behaviour):
     """
-    An example of a context switching class that sets (in ``initialise()``)
+    An example of a context switching class.
+
+    This class sets (in ``initialise()``)
     and restores a context (in ``terminate()``). Use in parallel with a
     sequence/subtree that does the work while in this context.
 
@@ -85,16 +89,15 @@ class ContextSwitch(py_trees.behaviour.Behaviour):
         either end of a sequence will not suffice for context switching. In the case
         that one of the work behaviours in the sequence fails, the final reset context
         switch will never trigger.
-
     """
-    def __init__(self, name="ContextSwitch"):
+
+    def __init__(self, name: str = "ContextSwitch"):
+        """Initialise with a behaviour name."""
         super(ContextSwitch, self).__init__(name)
         self.feedback_message = "no context"
 
-    def initialise(self):
-        """
-        Backup and set a new context.
-        """
+    def initialise(self) -> None:
+        """Backup and set a new context."""
         self.logger.debug("%s.initialise()[switch context]" % (self.__class__.__name__))
         # Some actions that:
         #   1. retrieve the current context from somewhere
@@ -102,32 +105,35 @@ class ContextSwitch(py_trees.behaviour.Behaviour):
         #   3. apply a new context
         self.feedback_message = "new context"
 
-    def update(self):
-        """
-        Just returns RUNNING while it waits for other activities to finish.
-        """
+    def update(self) -> py_trees.common.Status:
+        """Just returns RUNNING while it waits for other activities to finish."""
         self.logger.debug("%s.update()[RUNNING][%s]" % (self.__class__.__name__, self.feedback_message))
         return py_trees.common.Status.RUNNING
 
-    def terminate(self, new_status):
-        """
-        Restore the context with the previously backed up context.
-        """
-        self.logger.debug("%s.terminate()[%s->%s][restore context]" % (self.__class__.__name__, self.status, new_status))
+    def terminate(self, new_status: py_trees.common.Status) -> None:
+        """Restore the context with the previously backed up context."""
+        self.logger.debug(
+            "%s.terminate()[%s->%s][restore context]" % (
+                self.__class__.__name__, self.status, new_status)
+        )
         # Some actions that:
         #   1. restore the cached context
         self.feedback_message = "restored context"
 
 
-def create_root():
+def create_root() -> py_trees.behaviour.Behaviour:
     root = py_trees.composites.Parallel(name="Parallel", policy=py_trees.common.ParallelPolicy.SuccessOnOne())
     context_switch = ContextSwitch(name="Context")
-    sequence = py_trees.composites.Sequence(name="Sequence")
+    sequence = py_trees.composites.Sequence(name="Sequence", memory=True)
     for job in ["Action 1", "Action 2"]:
-        success_after_two = py_trees.behaviours.Count(name=job,
-                                                      fail_until=0,
-                                                      running_until=2,
-                                                      success_until=10)
+        success_after_two = py_trees.behaviours.StatusQueue(
+            name=job,
+            queue=[
+                py_trees.common.Status.RUNNING,
+                py_trees.common.Status.RUNNING
+            ],
+            eventually=py_trees.common.Status.SUCCESS
+        )
         sequence.add_child(success_after_two)
     root.add_child(context_switch)
     root.add_child(sequence)
@@ -138,10 +144,8 @@ def create_root():
 # Main
 ##############################################################################
 
-def main():
-    """
-    Entry point for the demo script.
-    """
+def main() -> None:
+    """Entry point for the demo script."""
     args = command_line_argument_parser().parse_args()
     print(description())
     py_trees.logging.level = py_trees.logging.Level.DEBUG

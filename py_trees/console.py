@@ -41,42 +41,50 @@ import sys
 ##############################################################################
 
 
-def has_unicode(encoding: str=sys.stdout.encoding) -> bool:
+def has_unicode(encoding: str = sys.stdout.encoding) -> bool:
     """
-    Define whether the specified encoding has unicode symbols. Usually used to check
-    if the stdout is capable or otherwise (e.g. Jenkins CI can often be configured
-    with unicode disabled).
+    Define whether the specified encoding has unicode symbols.
+
+    This is usually used to check
+    if stdout is capable of unicode or otherwise (e.g.
+    Jenkins CI is often be configured with unicode disabled).
 
     Args:
-        encoding (:obj:`str`, optional): the encoding to check against.
+        encoding: the encoding to check against.
 
     Returns:
-        :obj:`bool`: true if capable, false otherwise
+        true if capable, false otherwise
     """
     try:
         u'\u26A1'.encode(encoding)
     except TypeError:
         # if sys.stdout.encoding is not available, it is None
-        # this will occur if you run nosetests3 without -s
+        # this will occur if you run nosetests3 or pytest-3 without -s
         return False
     except UnicodeError:
         return False
     return True
 
 
-def define_symbol_or_fallback(original: str, fallback: str, encoding: str=sys.stdout.encoding):
+def define_symbol_or_fallback(
+    original: str,
+    fallback: str,
+    encoding: str = sys.stdout.encoding
+) -> str:
     """
+    Go unicode, or fallback to ascii.
+
     Return the correct encoding according to the specified encoding. Used to
     make sure we get an appropriate symbol, even if the shell is merely ascii as
     is often the case on, e.g. Jenkins CI.
 
     Args:
-        original (:obj:`str`): the unicode string (usually just a character)
-        fallback (:obj:`str`): the fallback ascii string
-        encoding (:obj:`str`, optional): the encoding to check against.
+        original: the unicode string (usually just a character)
+        fallback: the fallback ascii string
+        encoding: the encoding to check against.
 
     Returns:
-        :obj:`str`: either original or fallback depending on whether exceptions were thrown.
+        either original or fallback depending on whether exceptions were thrown.
     """
     try:
         original.encode(encoding)
@@ -101,8 +109,8 @@ circled_m = u'\u24c2'
 ##############################################################################
 
 
-def read_single_keypress():
-    """Waits for a single keypress on stdin.
+def read_single_keypress() -> str:
+    """Wait for a single keypress on stdin.
 
     This is a silly function to call if you need to do it a lot because it has
     to store stdin's current setup, setup stdin for reading single keystrokes
@@ -110,12 +118,12 @@ def read_single_keypress():
     keystroke.
 
     Returns:
-        :obj:`int`: the character of the key that was pressed
+        the character of the key that was pressed
 
     Raises:
         KeyboardInterrupt: if CTRL-C was pressed (keycode 0x03)
     """
-    def read_single_keypress_unix():
+    def read_single_keypress_unix() -> str:
         """For Unix case, where fcntl, termios is available."""
         import fcntl
         import termios
@@ -126,17 +134,17 @@ def read_single_keypress():
         # make raw - the way to do this comes from the termios(3) man page.
         attrs = list(attrs_save)  # copy the stored version to update
         # iflag
-        attrs[0] &= ~(termios.IGNBRK | termios.BRKINT | termios.PARMRK |
-                      termios.ISTRIP | termios.INLCR | termios. IGNCR |
-                      termios.ICRNL | termios.IXON)
+        attrs[0] &= ~(termios.IGNBRK | termios.BRKINT | termios.PARMRK
+                      | termios.ISTRIP | termios.INLCR | termios. IGNCR
+                      | termios.ICRNL | termios.IXON)
         # oflag
         attrs[1] &= ~termios.OPOST
         # cflag
         attrs[2] &= ~(termios.CSIZE | termios. PARENB)
         attrs[2] |= termios.CS8
         # lflag
-        attrs[3] &= ~(termios.ECHONL | termios.ECHO | termios.ICANON |
-                      termios.ISIG | termios.IEXTEN)
+        attrs[3] &= ~(termios.ECHONL | termios.ECHO | termios.ICANON
+                      | termios.ISIG | termios.IEXTEN)
         termios.tcsetattr(fd, termios.TCSANOW, attrs)
         # turn off non-blocking
         fcntl.fcntl(fd, fcntl.F_SETFL, flags_save & ~os.O_NONBLOCK)
@@ -151,9 +159,8 @@ def read_single_keypress():
         fcntl.fcntl(fd, fcntl.F_SETFL, flags_save)
         return ret
 
-    def read_single_keypress_windows():
-        """Windows case, can't use fcntl and termios.
-        Not same implementation as for Unix, requires a newline to continue.
+    def read_single_keypress_windows() -> str:
+        """Implement keypress functionality for windows, which can't use fcntl and termios.
         """
         import msvcrt  # noqa
         # read a single keystroke
@@ -167,24 +174,29 @@ def read_single_keypress():
         try:
             return read_single_keypress_windows()
         except ImportError as e_windows:
-            raise ImportError("Neither unix nor windows implementations supported [{}][{}]".format(str(e_unix), str(e_windows)))
+            raise ImportError(
+                "Neither unix nor windows implementations supported [{}][{}]".format(
+                    str(e_unix),
+                    str(e_windows)
+                )
+            )
 
 ##############################################################################
 # Methods
 ##############################################################################
 
 
-def console_has_colours():
+def console_has_colours() -> bool:
     """
-    Detects if the console (stdout) has colourising capability.
+    Detect if the console (stdout) has colourising capability.
     """
     if os.environ.get("PY_TREES_DISABLE_COLORS"):
         return False
     # From django.core.management.color.supports_color
     #   https://github.com/django/django/blob/master/django/core/management/color.py
     plat = sys.platform
-    supported_platform = plat != 'Pocket PC' and (plat != 'win32' or
-                                                  'ANSICON' in os.environ)
+    supported_platform = plat != 'Pocket PC' and (plat != 'win32'
+                                                  or 'ANSICON' in os.environ)
     # isatty is not always implemented, #6223.
     is_a_tty = hasattr(sys.stdout, 'isatty') and sys.stdout.isatty()
     if not supported_platform or not is_a_tty:
@@ -204,7 +216,8 @@ if has_colours:
     underlined = "\x1b[%sm" % '4'
     blink = "\x1b[%sm" % '5'
     black, red, green, yellow, blue, magenta, cyan, white = ["\x1b[%sm" % str(i) for i in range(30, 38)]
-    bold_black, bold_red, bold_green, bold_yellow, bold_blue, bold_magenta, bold_cyan, bold_white = ["\x1b[%sm" % ('1;' + str(i)) for i in range(30, 38)]
+    bold_black, bold_red, bold_green, bold_yellow, bold_blue, bold_magenta, bold_cyan, bold_white = \
+        ["\x1b[%sm" % ('1;' + str(i)) for i in range(30, 38)]
 else:
     reset = ""
     bold = ""
@@ -212,7 +225,8 @@ else:
     underlined = ""
     blink = ""
     black, red, green, yellow, blue, magenta, cyan, white = ["" for i in range(30, 38)]
-    bold_black, bold_red, bold_green, bold_yellow, bold_blue, bold_magenta, bold_cyan, bold_white = ["" for i in range(30, 38)]
+    bold_black, bold_red, bold_green, bold_yellow, bold_blue, bold_magenta, bold_cyan, bold_white = \
+        ["" for i in range(30, 38)]
 
 colours = [bold, dim, underlined, blink,
            black, red, green, yellow, blue, magenta, cyan, white,
@@ -221,7 +235,7 @@ colours = [bold, dim, underlined, blink,
 """List of all available colours."""
 
 
-def pretty_print(msg, colour=white):
+def pretty_print(msg: str, colour: str = white) -> None:
     if has_colours:
         seq = colour + msg + reset
         sys.stdout.write(seq)
@@ -229,7 +243,7 @@ def pretty_print(msg, colour=white):
         sys.stdout.write(msg)
 
 
-def pretty_println(msg, colour=white):
+def pretty_println(msg: str, colour: str = white) -> None:
     if has_colours:
         seq = colour + msg + reset
         sys.stdout.write(seq)
@@ -243,75 +257,75 @@ def pretty_println(msg, colour=white):
 ##############################################################################
 
 
-def banner(msg):
+def banner(msg: str) -> None:
     print(green + "\n" + 80 * "*" + reset)
     print(green + "* " + bold_white + msg.center(80) + reset)
     print(green + 80 * "*" + "\n" + reset)
 
 
-def debug(msg):
+def debug(msg: str) -> None:
     print(green + msg + reset)
 
 
-def warning(msg):
+def warning(msg: str) -> None:
     print(yellow + msg + reset)
 
 
-def info(msg):
+def info(msg: str) -> None:
     print(msg)
 
 
-def error(msg):
+def error(msg: str) -> None:
     print(red + msg + reset)
 
 
-def logdebug(message):
-    '''
+def logdebug(message: str) -> None:
+    """
     Prefixes ``[DEBUG]`` and colours the message green.
 
     Args:
-        message (:obj:`str`): message to log.
-    '''
+        message: message to log.
+    """
     print(green + "[DEBUG] " + message + reset)
 
 
-def loginfo(message):
-    '''
+def loginfo(message: str) -> None:
+    """
     Prefixes ``[ INFO]`` to the message.
 
     Args:
-        message (:obj:`str`): message to log.
-    '''
+        message: message to log.
+    """
     print("[ INFO] " + message)
 
 
-def logwarn(message):
-    '''
+def logwarn(message: str) -> None:
+    """
     Prefixes ``[ WARN]`` and colours the message yellow.
 
     Args:
-        message (:obj:`str`): message to log.
-    '''
+        message: message to log.
+    """
     print(yellow + "[ WARN] " + message + reset)
 
 
-def logerror(message):
-    '''
+def logerror(message: str) -> None:
+    """
     Prefixes ``[ERROR]`` and colours the message red.
 
     Args:
-        message (:obj:`str`): message to log.
-    '''
+        message: message to log.
+    """
     print(red + "[ERROR] " + message + reset)
 
 
-def logfatal(message):
-    '''
+def logfatal(message: str) -> None:
+    """
     Prefixes ``[FATAL]`` and colours the message bold red.
 
     Args:
-        message (:obj:`str`): message to log.
-    '''
+        message: message to log.
+    """
     print(bold_red + "[FATAL] " + message + reset)
 
 
@@ -320,6 +334,15 @@ def logfatal(message):
 ##############################################################################
 
 if __name__ == '__main__':
+
+    # To test without unicode, configure a non utf-8 locale:
+    #
+    #   $ cat /usr/share/i18n/SUPPORTED | grep en_US
+    #   $ sudo locale-gen en_US.ISO-8859-15
+    #   $ sudo update-locale
+    #   $  locale -a
+    #   $ python3 ./console.py
+
     for colour in colours:
         pretty_print("dude\n", colour)
     logdebug("loginfo message")
@@ -329,7 +352,8 @@ if __name__ == '__main__':
     pretty_print("red\n", red)
     print("some normal text")
     print(cyan + "    Name" + reset + ": " + yellow + "Dude" + reset)
-    print("special characters are\n")
+    print(f"Has Unicode: {has_unicode()}")
+    print("Unicode Characters:\n")
     print("lightning_bolt: {}".format(lightning_bolt))
     print("double_vertical_line: {}".format(double_vertical_line))
     print("check_mark: {}".format(check_mark))
@@ -337,4 +361,3 @@ if __name__ == '__main__':
     print("left_arrow: {}".format(left_arrow))
     print("right_arrow: {}".format(right_arrow))
     print("circled_m: {}".format(circled_m))
-    # print("has unicode: {}".format(has_unicode()))

@@ -8,6 +8,8 @@
 ##############################################################################
 
 """
+Renders a dot graph for a simple tree, with blackboxes.
+
 .. argparse::
    :module: py_trees.demos.dot_graphs
    :func: command_line_argument_parser
@@ -23,8 +25,9 @@
 
 import argparse
 import subprocess
-import py_trees
+import typing
 
+import py_trees
 import py_trees.console as console
 
 ##############################################################################
@@ -32,13 +35,12 @@ import py_trees.console as console
 ##############################################################################
 
 
-def description():
+def description() -> str:
     name = "py-trees-demo-dot-graphs"
     content = "Renders a dot graph for a simple tree, with blackboxes.\n"
     if py_trees.console.has_colours:
         banner_line = console.green + "*" * 79 + "\n" + console.reset
-        s = "\n"
-        s += banner_line
+        s = banner_line
         s += console.bold_white + "Dot Graphs".center(79) + "\n" + console.reset
         s += banner_line
         s += "\n"
@@ -62,14 +64,14 @@ def description():
     return s
 
 
-def epilog():
+def epilog() -> typing.Optional[str]:
     if py_trees.console.has_colours:
         return console.cyan + "And his noodly appendage reached forth to tickle the blessed...\n" + console.reset
     else:
         return None
 
 
-def command_line_argument_parser():
+def command_line_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=description(),
                                      epilog=epilog(),
                                      formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -81,19 +83,19 @@ def command_line_argument_parser():
     return parser
 
 
-def create_tree(level):
-    root = py_trees.composites.Selector("Demo Dot Graphs %s" % level)
-    first_blackbox = py_trees.composites.Sequence("BlackBox 1")
+def create_tree(level: str) -> py_trees.behaviour.Behaviour:
+    root = py_trees.composites.Selector(name="Demo Dot Graphs %s" % level, memory=False)
+    first_blackbox = py_trees.composites.Sequence(name="BlackBox 1", memory=True)
     first_blackbox.add_child(py_trees.behaviours.Running("Worker"))
     first_blackbox.add_child(py_trees.behaviours.Running("Worker"))
     first_blackbox.add_child(py_trees.behaviours.Running("Worker"))
     first_blackbox.blackbox_level = py_trees.common.BlackBoxLevel.BIG_PICTURE
-    second_blackbox = py_trees.composites.Sequence("Blackbox 2")
+    second_blackbox = py_trees.composites.Sequence(name="Blackbox 2", memory=True)
     second_blackbox.add_child(py_trees.behaviours.Running("Worker"))
     second_blackbox.add_child(py_trees.behaviours.Running("Worker"))
     second_blackbox.add_child(py_trees.behaviours.Running("Worker"))
     second_blackbox.blackbox_level = py_trees.common.BlackBoxLevel.COMPONENT
-    third_blackbox = py_trees.composites.Sequence("Blackbox 3")
+    third_blackbox = py_trees.composites.Sequence(name="Blackbox 3", memory=True)
     third_blackbox.add_child(py_trees.behaviours.Running("Worker"))
     third_blackbox.add_child(py_trees.behaviours.Running("Worker"))
     third_blackbox.add_child(py_trees.behaviours.Running("Worker"))
@@ -108,10 +110,8 @@ def create_tree(level):
 # Main
 ##############################################################################
 
-def main():
-    """
-    Entry point for the demo script.
-    """
+def main() -> None:
+    """Entry point for the demo script."""
     args = command_line_argument_parser().parse_args()
     args.enum_level = py_trees.common.string_to_visibility_level(args.level)
     print(description())

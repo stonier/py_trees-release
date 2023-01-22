@@ -8,8 +8,6 @@
 # Imports
 ##############################################################################
 
-import nose.tools
-
 import py_trees
 import py_trees.console as console
 
@@ -18,25 +16,50 @@ import py_trees.console as console
 ##############################################################################
 
 py_trees.logging.level = py_trees.logging.Level.DEBUG
-logger = py_trees.logging.Logger("Nosetest")
+logger = py_trees.logging.Logger("Tests")
 
 
 ##############################################################################
-# Classes
+# Helpers
 ##############################################################################
+
+
+def create_fffrrs_repeat_status_queue(
+    name: str
+) -> py_trees.behaviours.StatusQueue:
+    return py_trees.behaviours.StatusQueue(
+        name=name,
+        queue=[
+            py_trees.common.Status.FAILURE,
+            py_trees.common.Status.FAILURE,
+            py_trees.common.Status.FAILURE,
+            py_trees.common.Status.RUNNING,
+            py_trees.common.Status.RUNNING,
+            py_trees.common.Status.SUCCESS,
+        ],
+        eventually=None
+    )
 
 ##############################################################################
 # Tests
 ##############################################################################
 
 
-def test_snapshot_visitor():
+def test_snapshot_visitor() -> None:
     console.banner("Snapshot Visitor")
 
-    root = py_trees.composites.Selector(name='Selector')
-    a = py_trees.behaviours.Count(name="A")
-    b = py_trees.behaviours.Count(name="B")
-    c = py_trees.behaviours.Count(name="C", fail_until=0, running_until=3, success_until=15)
+    root = py_trees.composites.Selector(name='Selector', memory=False)
+    a = create_fffrrs_repeat_status_queue(name="A")
+    b = create_fffrrs_repeat_status_queue(name="B")
+    c = py_trees.behaviours.StatusQueue(
+        name="C",
+        queue=[
+            py_trees.common.Status.RUNNING,
+            py_trees.common.Status.RUNNING,
+            py_trees.common.Status.RUNNING,
+        ],
+        eventually=py_trees.common.Status.SUCCESS
+    )
     root.add_child(a)
     root.add_child(b)
     root.add_child(c)
@@ -54,6 +77,6 @@ def test_snapshot_visitor():
         )
         print("--------- Assertions ---------\n")
         print("snapshot_visitor.changed == {}".format(result))
-        assert(snapshot_visitor.changed is result)
+        assert snapshot_visitor.changed is result
 
     print("Done")

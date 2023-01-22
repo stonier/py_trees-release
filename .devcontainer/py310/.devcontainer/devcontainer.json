@@ -1,0 +1,20 @@
+{
+    "name": "py_trees-310",
+
+    "build": {
+        "dockerfile": "../../Dockerfile",
+        "args": {
+            "NAME": "py_trees-310",
+            "POETRY_VERSION": "1.2.2",
+            "PYTHON_VERSION": "3.10.8"
+        },
+        "context": ".."
+    },
+    "extensions": [
+        "bierner.github-markdown-preview",
+        "ms-python.python"
+    ],
+    "remoteUser": "zen",
+    "workspaceMount": "source=${localWorkspaceFolder}/../..,target=/workspace,type=bind",
+    "workspaceFolder": "/workspace"
+}

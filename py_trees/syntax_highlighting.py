@@ -8,6 +8,8 @@
 ##############################################################################
 
 """
+Syntax highlighting hints for core py_tree types/enums.
+
 .. module:: syntax_highlighting
    :synopsis: Syntax highlighting for various py_trees objects
 
@@ -40,22 +42,31 @@ _status_colour_codes = {common.Status.SUCCESS: console.green,
                         }
 
 
-def status(status):
+def status(status: common.Status) -> str:
     """
-    Syntax colouring for :py:class:`~py_trees.common.Status`
+    Retrieve a coloured string representing a :py:class:`~py_trees.common.Status`.
 
-    :param :py:class:`~py_trees.common.Status` Status: behaviour status
-    :returns: syntax highlighted string representation of the status
+    This is used for syntax highlighting in various modes.
+
+    Args:
+        status: behaviour status
+
+    Returns:
+        syntax highlighted string representation of the status
     """
     return _status_colour_strings[status]
 
 
-def status_colour_code(status):
+def status_colour_code(status: common.Status) -> str:
     """
-    Colour code associated with the :py:class:`~py_trees.common.Status` for
-    syntax highlighting
+    Retrieve the colour code associated with a :py:class:`~py_trees.common.Status`.
 
-    :param :py:class:`~py_trees.common.Status` Status: behaviour status
-    :returns: console colour code associated with the status
+    This is used for syntax highlighting in various modes.
+
+    Args:
+        Status: behaviour status
+
+    Returns:
+        console colour code associated with the status
     """
     return _status_colour_codes[status]

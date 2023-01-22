@@ -7,9 +7,13 @@
 ##############################################################################
 # Imports
 ##############################################################################
+
 import itertools
-import nose.tools
+import pytest
+import typing
+
 import py_trees
+import py_trees.tests
 import py_trees.console as console
 
 ##############################################################################
@@ -17,36 +21,21 @@ import py_trees.console as console
 ##############################################################################
 
 py_trees.logging.level = py_trees.logging.Level.DEBUG
-logger = py_trees.logging.Logger("Nosetest")
+logger = py_trees.logging.Logger("Tests")
 
-##############################################################################
-# Helpers
-##############################################################################
-
-
-def assert_banner():
-    print(console.green + "----- Asserts -----" + console.reset)
-
-
-def assert_details(text, expected, result):
-    print(console.green + text +
-          "." * (70 - len(text)) +
-          console.cyan + "{}".format(expected) +
-          console.yellow + " [{}]".format(result) +
-          console.reset)
 
 ##############################################################################
 # Tests
 ##############################################################################
 
 
-def test_parallel_failure():
+def test_parallel_failure() -> None:
     console.banner("Parallel Failure")
     success_on_one = py_trees.common.ParallelPolicy.SuccessOnOne()
     success_on_all_synchronised = py_trees.common.ParallelPolicy.SuccessOnAll(synchronise=True)
     success_on_all_not_synchronised = py_trees.common.ParallelPolicy.SuccessOnAll(synchronise=False)
     for policy in [success_on_one, success_on_all_synchronised, success_on_all_not_synchronised]:
-        root = py_trees.composites.Parallel("Parallel", policy=policy)
+        root = py_trees.composites.Parallel(name="Parallel", policy=policy)
         failure = py_trees.behaviours.Failure("Failure")
         success = py_trees.behaviours.Success("Success")
         root.add_child(failure)
@@ -57,17 +46,17 @@ def test_parallel_failure():
 
         print("\n--------- Assertions ---------\n")
         print("root.status == py_trees.common.Status.FAILURE")
-        assert(root.status == py_trees.common.Status.FAILURE)
+        assert root.status == py_trees.common.Status.FAILURE
         print("failure.status == py_trees.common.Status.FAILURE")
-        assert(failure.status == py_trees.common.Status.FAILURE)
+        assert failure.status == py_trees.common.Status.FAILURE
         print("success.status == py_trees.common.Status.SUCCESS")
-        assert(success.status == py_trees.common.Status.SUCCESS)
+        assert success.status == py_trees.common.Status.SUCCESS
 
     failure = py_trees.behaviours.Failure("Failure")
     success = py_trees.behaviours.Success("Success")
     for child, synchronise in itertools.product([success, failure], [True, False]):
         policy = py_trees.common.ParallelPolicy.SuccessOnSelected(children=[child], synchronise=synchronise)
-        root = py_trees.composites.Parallel("Parallel", policy=policy)
+        root = py_trees.composites.Parallel(name="Parallel", policy=policy)
         root.add_child(failure)
         root.add_child(success)
         print(py_trees.display.unicode_tree(root))
@@ -76,20 +65,20 @@ def test_parallel_failure():
 
         print("\n--------- Assertions ---------\n")
         print("root.status == py_trees.common.Status.FAILURE")
-        assert(root.status == py_trees.common.Status.FAILURE)
+        assert root.status == py_trees.common.Status.FAILURE
         print("failure.status == py_trees.common.Status.FAILURE")
-        assert(failure.status == py_trees.common.Status.FAILURE)
+        assert failure.status == py_trees.common.Status.FAILURE
         print("success.status == py_trees.common.Status.SUCCESS")
-        assert(success.status == py_trees.common.Status.SUCCESS)
+        assert success.status == py_trees.common.Status.SUCCESS
 
         # cleanup so they can be added again
         root.remove_child(failure)
         root.remove_child(success)
 
 
-def test_parallel_success():
+def test_parallel_success() -> None:
     console.banner("Parallel Success")
-    root = py_trees.composites.Parallel("Parallel")
+    root = py_trees.composites.Parallel(name="Parallel", policy=py_trees.common.ParallelPolicy.SuccessOnAll())
     success1 = py_trees.behaviours.Success("Success1")
     success2 = py_trees.behaviours.Success("Success2")
     root.add_child(success1)
@@ -100,24 +89,24 @@ def test_parallel_success():
 
     print("\n--------- Assertions ---------\n")
     print("root.status == py_trees.common.Status.SUCCESS")
-    assert(root.status == py_trees.common.Status.SUCCESS)
+    assert root.status == py_trees.common.Status.SUCCESS
     print("success1.status == py_trees.common.Status.SUCCESS")
-    assert(success1.status == py_trees.common.Status.SUCCESS)
+    assert success1.status == py_trees.common.Status.SUCCESS
     print("success2.status == py_trees.common.Status.SUCCESS")
-    assert(success2.status == py_trees.common.Status.SUCCESS)
+    assert success2.status == py_trees.common.Status.SUCCESS
 
 
-def test_parallel_running():
+def test_parallel_running() -> None:
     console.banner("Parallel Running")
     root = py_trees.composites.Parallel(
-        "Parallel", policy=py_trees.common.ParallelPolicy.SuccessOnAll())
-    success_after_1 = py_trees.behaviours.Count(
+        name="Parallel",
+        policy=py_trees.common.ParallelPolicy.SuccessOnAll()
+    )
+    success_after_1 = py_trees.behaviours.StatusQueue(
         name="SuccessAfter1",
-        fail_until=0,
-        running_until=1,
-        success_until=20,
-        reset=False)
-
+        queue=[py_trees.common.Status.RUNNING],
+        eventually=py_trees.common.Status.SUCCESS
+    )
     running = py_trees.behaviours.Running("Running")
     success_every_other = py_trees.behaviours.SuccessEveryN("SuccessEveryOther", 2)
     root.add_child(success_after_1)
@@ -129,32 +118,34 @@ def test_parallel_running():
 
     print("\n--------- Assertions ---------\n")
     print("root.status == py_trees.common.Status.FAILURE")
-    assert(root.status == py_trees.common.Status.FAILURE)
+    assert root.status == py_trees.common.Status.FAILURE
     print("success_after_1.status == py_trees.common.Status.INVALID")
-    assert(success_after_1.status == py_trees.common.Status.INVALID)
+    assert success_after_1.status == py_trees.common.Status.INVALID
     print("running.status == py_trees.common.Status.INVALID")
-    assert(running.status == py_trees.common.Status.INVALID)
+    assert running.status == py_trees.common.Status.INVALID
     print("success_every_other.status == py_trees.common.Status.FAILURE")
-    assert(success_every_other.status == py_trees.common.Status.FAILURE)
+    assert success_every_other.status == py_trees.common.Status.FAILURE
 
     py_trees.tests.tick_tree(root, 2, 2, visitors=[visitor])
 
     print("\n--------- Assertions ---------\n")
     print("root.status == py_trees.common.Status.RUNNING")
-    assert(root.status == py_trees.common.Status.RUNNING)
+    assert root.status == py_trees.common.Status.RUNNING
     print("success_after_1.status == py_trees.common.Status.SUCCESS")
-    assert(success_after_1.status == py_trees.common.Status.SUCCESS)
+    assert success_after_1.status == py_trees.common.Status.SUCCESS
     print("running.status == py_trees.common.Status.RUNNING")
-    assert(running.status == py_trees.common.Status.RUNNING)
+    assert running.status == py_trees.common.Status.RUNNING
     print("success_every_other.status == py_trees.common.Status.SUCCESS")
-    assert(success_every_other.status == py_trees.common.Status.SUCCESS)
+    assert success_every_other.status == py_trees.common.Status.SUCCESS
 
 
-def test_parallel_success_on_one():
+def test_parallel_success_on_one() -> None:
     console.banner("Parallel Success on One")
     print("")
     root = py_trees.composites.Parallel(
-        name="Parallel", policy=py_trees.common.ParallelPolicy.SuccessOnOne())
+        name="Parallel",
+        policy=py_trees.common.ParallelPolicy.SuccessOnOne()
+    )
     running1 = py_trees.behaviours.Running("Running1")
     success = py_trees.behaviours.Success("Success")
     running2 = py_trees.behaviours.Running("Running2")
@@ -167,29 +158,29 @@ def test_parallel_success_on_one():
 
     print("\n--------- Assertions ---------\n")
     print("root.status == py_trees.common.Status.SUCCESS")
-    assert(root.status == py_trees.common.Status.SUCCESS)
+    assert root.status == py_trees.common.Status.SUCCESS
     print("running1.status == py_trees.common.Status.INVALID")
-    assert(running1.status == py_trees.common.Status.INVALID)
+    assert running1.status == py_trees.common.Status.INVALID
     print("success.status == py_trees.common.Status.SUCCESS")
-    assert(success.status == py_trees.common.Status.SUCCESS)
+    assert success.status == py_trees.common.Status.SUCCESS
     print("running2.status == py_trees.common.Status.INVALID")
-    assert(running2.status == py_trees.common.Status.INVALID)
+    assert running2.status == py_trees.common.Status.INVALID
 
 
-def test_parallel_success_on_selected():
+def test_parallel_success_on_selected() -> None:
     console.banner("Parallel Success on Selected")
     print("")
     running1 = py_trees.behaviours.Running(name="Running1")
-    success1 = py_trees.behaviours.Count(
+    success1 = py_trees.behaviours.StatusQueue(
         name="Success1",
-        fail_until=0,
-        running_until=1,
-        success_until=10)
-    success2 = py_trees.behaviours.Count(
-        name="Success2",
-        fail_until=0,
-        running_until=2,
-        success_until=10)
+        queue=[py_trees.common.Status.RUNNING],
+        eventually=py_trees.common.Status.SUCCESS
+    )
+    success2 = py_trees.behaviours.StatusQueue(
+        name="Success1",
+        queue=[py_trees.common.Status.RUNNING],
+        eventually=py_trees.common.Status.SUCCESS
+    )
     running2 = py_trees.behaviours.Running(name="Running2")
 
     root = py_trees.composites.Parallel(
@@ -205,31 +196,31 @@ def test_parallel_success_on_selected():
     py_trees.tests.tick_tree(root, 1, 1, visitors=[visitor], print_snapshot=True)
     print("\n--------- Assertions ---------\n")
     print("root.status == py_trees.common.Status.RUNNING")
-    assert(root.status == py_trees.common.Status.RUNNING)
+    assert root.status == py_trees.common.Status.RUNNING
     print("running1.status == py_trees.common.Status.RUNNING")
-    assert(running1.status == py_trees.common.Status.RUNNING)
+    assert running1.status == py_trees.common.Status.RUNNING
     print("success1.status == py_trees.common.Status.RUNNING")
-    assert(success1.status == py_trees.common.Status.RUNNING)
+    assert success1.status == py_trees.common.Status.RUNNING
     print("success2.status == py_trees.common.Status.RUNNING")
-    assert(success2.status == py_trees.common.Status.RUNNING)
+    assert success2.status == py_trees.common.Status.RUNNING
     print("running2.status == py_trees.common.Status.RUNNING")
-    assert(running2.status == py_trees.common.Status.RUNNING)
+    assert running2.status == py_trees.common.Status.RUNNING
 
     py_trees.tests.tick_tree(root, 2, 3, visitors=[visitor], print_snapshot=True)
     print("\n--------- Assertions ---------\n")
     print("root.status == py_trees.common.Status.SUCCESS")
-    assert(root.status == py_trees.common.Status.SUCCESS)
+    assert root.status == py_trees.common.Status.SUCCESS
     print("running1.status == py_trees.common.Status.INVALID")
-    assert(running1.status == py_trees.common.Status.INVALID)
+    assert running1.status == py_trees.common.Status.INVALID
     print("success1.status == py_trees.common.Status.SUCCESS")
-    assert(success1.status == py_trees.common.Status.SUCCESS)
+    assert success1.status == py_trees.common.Status.SUCCESS
     print("success2.status == py_trees.common.Status.SUCCESS")
-    assert(success2.status == py_trees.common.Status.SUCCESS)
+    assert success2.status == py_trees.common.Status.SUCCESS
     print("running2.status == py_trees.common.Status.INVALID")
-    assert(running2.status == py_trees.common.Status.INVALID)
+    assert running2.status == py_trees.common.Status.INVALID
 
 
-def test_parallel_success_on_selected_invalid_configuration():
+def test_parallel_success_on_selected_invalid_configuration() -> None:
     console.banner("Parallel Success on Selected [Invalid Configuration]")
     print("")
     running1 = py_trees.behaviours.Running(name="Running1")
@@ -244,6 +235,7 @@ def test_parallel_success_on_selected_invalid_configuration():
     )
     parallel = py_trees.composites.Parallel(
         name="Parallel",
+        policy=py_trees.common.ParallelPolicy.SuccessOnAll(),
         children=[running1, running3]
     )
     for policy in [different_policy, empty_policy]:
@@ -253,25 +245,34 @@ def test_parallel_success_on_selected_invalid_configuration():
         parallel.policy = policy
         print("\n--------- Assertions ---------\n")
         print("setup() raises a 'RuntimeError' due to invalid configuration")
-        with nose.tools.assert_raises(RuntimeError) as context:
+
+        with pytest.raises(RuntimeError) as context:  # if raised, context survives
             parallel.setup()
-            print("RuntimeError has message with substring 'SuccessOnSelected'")
-            assert("SuccessOnSelected" in str(context.exception))
+            py_trees.tests.print_assert_details("RuntimeError raised", "raised", "not raised")
+        py_trees.tests.print_assert_details("RuntimeError raised", "yes", "yes")
+        assert "RuntimeError" == context.typename
+        py_trees.tests.print_assert_details("Substring match", "SuccessOnSelected", f"{context.value}")
+        assert "SuccessOnSelected" in str(context.value)
+
         print("initialise() raises a 'RuntimeError' due to invalid configuration")
-        with nose.tools.assert_raises(RuntimeError) as context:
+
+        with pytest.raises(RuntimeError) as context:  # if raised, context survives
             parallel.tick_once()
-            print("RuntimeError has message with substring 'SuccessOnSelected'")
-            assert("SuccessOnSelected" in str(context.exception))
+            py_trees.tests.print_assert_details("RuntimeError raised", "raised", "not raised")
+        py_trees.tests.print_assert_details("RuntimeError raised", "yes", "yes")
+        assert "RuntimeError" == context.typename
+        py_trees.tests.print_assert_details("Substring match", "SuccessOnSelected", f"{context.value}")
+        assert "SuccessOnSelected" in str(context.value)
 
 
-def test_parallel_synchronisation():
+def test_parallel_synchronisation() -> None:
     console.banner("Parallel Synchronisation")
     root = py_trees.composites.Parallel(
         name="Parallel",
         policy=py_trees.common.ParallelPolicy.SuccessOnAll(
             synchronise=True
         ))
-    success = py_trees.behaviours.Success()
+    success = py_trees.behaviours.Success(name="Success")
     success_every_second = py_trees.decorators.FailureIsRunning(
         name="SuccessEverySecond",
         child=py_trees.behaviours.SuccessEveryN(name="Flipper", n=2)
@@ -289,11 +290,11 @@ def test_parallel_synchronisation():
 
     print("\n--------- Assertions ---------\n")
     print("root.status == py_trees.common.Status.RUNNING")
-    assert(root.status == py_trees.common.Status.RUNNING)
+    assert root.status == py_trees.common.Status.RUNNING
     print("success.status == py_trees.common.Status.SUCCESS")
-    assert(success.status == py_trees.common.Status.SUCCESS)
+    assert success.status == py_trees.common.Status.SUCCESS
     print("success_every_second.status == py_trees.common.Status.RUNNING")
-    assert(success_every_second.status == py_trees.common.Status.RUNNING)
+    assert success_every_second.status == py_trees.common.Status.RUNNING
 
     snapshot_visitor.initialise()
     py_trees.tests.tick_tree(
@@ -304,13 +305,13 @@ def test_parallel_synchronisation():
 
     print("\n--------- Assertions ---------\n")
     print("root.status == py_trees.common.Status.SUCCESS")
-    assert(root.status == py_trees.common.Status.SUCCESS)
+    assert root.status == py_trees.common.Status.SUCCESS
     print("success.status == py_trees.common.Status.SUCCESS")
-    assert(success.status == py_trees.common.Status.SUCCESS)
+    assert success.status == py_trees.common.Status.SUCCESS
     print("success_every_second.status == py_trees.common.Status.SUCCESS")
-    assert(success_every_second.status == py_trees.common.Status.SUCCESS)
+    assert success_every_second.status == py_trees.common.Status.SUCCESS
     print("success [id: {}] did not get ticked [snapshot: {}]".format(success.id, [str(ident) for ident in snapshot_visitor.visited.keys()]))
-    assert(success.id not in snapshot_visitor.visited)
+    assert success.id not in snapshot_visitor.visited
 
     snapshot_visitor.initialise()
     py_trees.tests.tick_tree(
@@ -321,14 +322,14 @@ def test_parallel_synchronisation():
 
     print("\n--------- Assertions ---------\n")
     print("root.status == py_trees.common.Status.RUNNING")
-    assert(root.status == py_trees.common.Status.RUNNING)
+    assert root.status == py_trees.common.Status.RUNNING
     print("success.status == py_trees.common.Status.SUCCESS")
-    assert(success.status == py_trees.common.Status.SUCCESS)
+    assert success.status == py_trees.common.Status.SUCCESS
     print("success_every_second.status == py_trees.common.Status.RUNNING")
-    assert(success_every_second.status == py_trees.common.Status.RUNNING)
+    assert success_every_second.status == py_trees.common.Status.RUNNING
 
 
-def test_parallel_no_synchronisation():
+def test_parallel_no_synchronisation() -> None:
     console.banner('Parallel No Synchronisation')
     root = py_trees.composites.Parallel(
         name="Parallel",
@@ -358,17 +359,17 @@ def test_parallel_no_synchronisation():
         print(counter)
         if counter % 2 == 0:
             print("success_every_two.status == py_trees.common.Status.SUCCESS")
-            assert(success_every_two.status == py_trees.common.Status.SUCCESS)
+            assert success_every_two.status == py_trees.common.Status.SUCCESS
         elif counter % 3 == 0:
             print("success_every_three.status == py_trees.common.Status.SUCCESS")
-            assert(success_every_three.status == py_trees.common.Status.SUCCESS)
+            assert success_every_three.status == py_trees.common.Status.SUCCESS
         else:
             print("success_every_two.status == py_trees.common.Status.RUNNING")
-            assert(success_every_two.status == py_trees.common.Status.RUNNING)
+            assert success_every_two.status == py_trees.common.Status.RUNNING
             print("success_every_three.status == py_trees.common.Status.RUNNING")
-            assert(success_every_three.status == py_trees.common.Status.RUNNING)
+            assert success_every_three.status == py_trees.common.Status.RUNNING
         print("root.status == py_trees.common.Status.RUNNING")
-        assert(root.status == py_trees.common.Status.RUNNING, "{}, {}".format(root.status, counter))
+        assert root.status == py_trees.common.Status.RUNNING
 
     snapshot_visitor.initialise()
     py_trees.tests.tick_tree(
@@ -376,16 +377,16 @@ def test_parallel_no_synchronisation():
         print_snapshot=True
     )
     print("success_every_two.status == py_trees.common.Status.SUCCESS")
-    assert(success_every_two.status == py_trees.common.Status.SUCCESS)
+    assert success_every_two.status == py_trees.common.Status.SUCCESS
     print("success_every_three.status == py_trees.common.Status.SUCCESS")
-    assert(success_every_three.status == py_trees.common.Status.SUCCESS)
+    assert success_every_three.status == py_trees.common.Status.SUCCESS
     print("root.status == py_trees.common.Status.SUCCESS")
-    assert(root.status == py_trees.common.Status.SUCCESS)
+    assert root.status == py_trees.common.Status.SUCCESS
 
 
-def test_add_tick_remove_with_current_child():
+def test_add_tick_remove_with_current_child() -> None:
     console.banner('Add (Failure)-Tick-Remove with Current Child')
-    assert_banner()
+    py_trees.tests.print_assert_banner()
     root = py_trees.composites.Parallel(
         name="Parallel",
         policy=py_trees.common.ParallelPolicy.SuccessOnAll(synchronise=False))
@@ -395,16 +396,16 @@ def test_add_tick_remove_with_current_child():
     print(py_trees.display.unicode_tree(root, show_status=True))
     root.remove_child(child)
     print(py_trees.display.unicode_tree(root, show_status=True))
-    assert_details("Current Child", None, root.current_child)
-    assert(root.current_child is None)
+    py_trees.tests.print_assert_details("Current Child", None, root.current_child)
+    assert root.current_child is None
 
     root.add_child(child)
     root.tick_once()
     print(py_trees.display.unicode_tree(root, show_status=True))
     root.remove_all_children()
     print(py_trees.display.unicode_tree(root, show_status=True))
-    assert_details("Current Child", None, root.current_child)
-    assert(root.current_child is None)
+    py_trees.tests.print_assert_details("Current Child", None, root.current_child)
+    assert root.current_child is None
 
     replacement = py_trees.behaviours.Success(name="Replacement")
     root.add_child(child)
@@ -412,8 +413,8 @@ def test_add_tick_remove_with_current_child():
     print(py_trees.display.unicode_tree(root, show_status=True))
     root.replace_child(child=child, replacement=replacement)
     print(py_trees.display.unicode_tree(root, show_status=True))
-    assert_details("Current Child", None, root.current_child)
-    assert(root.current_child is None)
+    py_trees.tests.print_assert_details("Current Child", None, root.current_child)
+    assert root.current_child is None
 
     root.remove_all_children()
     root.add_child(child)
@@ -421,26 +422,26 @@ def test_add_tick_remove_with_current_child():
     print(py_trees.display.unicode_tree(root, show_status=True))
     root.remove_child_by_id(child_id=child.id)
     print(py_trees.display.unicode_tree(root, show_status=True))
-    assert_details("Current Child", None, root.current_child)
-    assert(root.current_child is None)
+    py_trees.tests.print_assert_details("Current Child", None, root.current_child)
+    assert root.current_child is None
 
 
-def test_tick_add_with_current_child():
+def test_tick_add_with_current_child() -> None:
     console.banner('Tick-Add with Current Child')
-    assert_banner()
+    py_trees.tests.print_assert_banner()
     root = py_trees.composites.Parallel(
         name="Parallel",
         policy=py_trees.common.ParallelPolicy.SuccessOnAll(synchronise=False))
     root.tick_once()
     child = py_trees.behaviours.Failure(name="Failure")
     root.add_child(child)
-    assert_details("Current Child", None, root.current_child)
-    assert(root.current_child is None)
+    py_trees.tests.print_assert_details("Current Child", None, root.current_child)
+    assert root.current_child is None
 
 
-def test_add_tick_add_with_current_child():
+def test_add_tick_add_with_current_child() -> None:
     console.banner('Add-Tick-Add with Current Child')
-    assert_banner()
+    py_trees.tests.print_assert_banner()
     root = py_trees.composites.Parallel(
         name="Parallel",
         policy=py_trees.common.ParallelPolicy.SuccessOnAll(synchronise=False))
@@ -449,17 +450,19 @@ def test_add_tick_add_with_current_child():
     root.add_child(run1)
     root.tick_once()
     print(py_trees.display.unicode_tree(root, show_status=True))
-    assert_details("Current Child", run1.name, root.current_child.name)
-    assert(root.current_child.name == run1.name)
+    assert root.current_child is not None
+    py_trees.tests.print_assert_details("Current Child", run1.name, root.current_child.name)
+    assert root.current_child.name == run1.name
     root.add_child(run2)
     print(py_trees.display.unicode_tree(root, show_status=True))
-    assert_details("Current Child", run1.name, root.current_child.name)
-    assert(root.current_child.name == run1.name)
+    assert root.current_child is not None
+    py_trees.tests.print_assert_details("Current Child", run1.name, root.current_child.name)
+    assert root.current_child.name == run1.name
 
 
-def test_add_tick_insert_with_current_child():
+def test_add_tick_insert_with_current_child() -> None:
     console.banner('Add-Tick-Insert with Current Child')
-    assert_banner()
+    py_trees.tests.print_assert_banner()
     root = py_trees.composites.Parallel(
         name="Parallel",
         policy=py_trees.common.ParallelPolicy.SuccessOnAll(synchronise=False))
@@ -468,9 +471,11 @@ def test_add_tick_insert_with_current_child():
     root.add_child(run1)
     root.tick_once()
     print(py_trees.display.unicode_tree(root, show_status=True))
-    assert_details("Current Child", run1.name, root.current_child.name)
-    assert(root.current_child.name == run1.name)
+    assert root.current_child is not None
+    py_trees.tests.print_assert_details("Current Child", run1.name, root.current_child.name)
+    assert root.current_child.name == run1.name
     root.insert_child(run2, index=0)
     print(py_trees.display.unicode_tree(root, show_status=True))
-    assert_details("Current Child", run1.name, root.current_child.name)
-    assert(root.current_child.name == run1.name)
+    assert root.current_child is not None
+    py_trees.tests.print_assert_details("Current Child", run1.name, root.current_child.name)
+    assert root.current_child.name == run1.name

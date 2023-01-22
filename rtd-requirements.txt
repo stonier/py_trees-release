@@ -14,6 +14,8 @@
 pydot
 
 # extras_require[docs]
+jinja2<3.1.0  # https://github.com/splintered-reality/py_trees/issues/35
+
 Sphinx==1.8.5
 # Avoid a sphinx-docutils incompatibility that creates deprecation warnings:
 #   sphinxsphinx/util/nodes.py:94: FutureWarning: The iterable returned by
@@ -24,4 +26,4 @@ sphinx_rtd_theme<0.5
 sphinx-autodoc-typehints==1.6.0
 
 # extras_require[test] || tests_require
-nose
+pytest

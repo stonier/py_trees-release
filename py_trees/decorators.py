@@ -8,6 +8,8 @@
 ##############################################################################
 
 """
+Decorate your children. They make great furniture pieces.
+
 Decorators are behaviours that manage a single child and provide common
 modifications to their underlying child behaviour (e.g. inverting the result).
 That is, they provide a means for behaviours to wear different 'hats' and
@@ -29,12 +31,15 @@ An example:
 
 **Decorators (Hats)**
 
-Decorators with very specific functionality:
+Decorators with specific functionality:
 
 * :class:`py_trees.decorators.Condition`
+* :class:`py_trees.decorators.Count`
 * :class:`py_trees.decorators.EternalGuard`
 * :class:`py_trees.decorators.Inverter`
 * :class:`py_trees.decorators.OneShot`
+* :class:`py_trees.decorators.Repeat`
+* :class:`py_trees.decorators.Retry`
 * :class:`py_trees.decorators.StatusToBlackboard`
 * :class:`py_trees.decorators.Timeout`
 
@@ -50,26 +55,21 @@ And the X is Y family:
 **Decorators for Blocking Behaviours**
 
 It is worth making a note of the effect of decorators on
-behaviours that return :data:`~py_trees.common.Status.RUNNING` for
-some time before finally returning  :data:`~py_trees.common.Status.SUCCESS`
-or  :data:`~py_trees.common.Status.FAILURE` (blocking behaviours) since
-the results are often at first, surprising.
+blocking behaviours, i.e. those that return :data:`~py_trees.common.Status.RUNNING`
+before eventually returning  :data:`~py_trees.common.Status.SUCCESS`
+or  :data:`~py_trees.common.Status.FAILURE`.
 
 A decorator, such as :func:`py_trees.decorators.RunningIsSuccess` on
 a blocking behaviour will immediately terminate the underlying child and
-re-intialise on it's next tick. This is necessary to ensure the underlying
-child isn't left in a dangling state (i.e.
-:data:`~py_trees.common.Status.RUNNING`), but is often not what is being
-sought.
+re-intialise on it's next tick. This is often surprising (to the user) but
+is necessary to ensure the underlying child isn't left in a dangling state (i.e.
+:data:`~py_trees.common.Status.RUNNING`) as subsequent ticks move on to other
+parts of the tree.
 
-The typical use case being attempted is to convert the blocking
-behaviour into a non-blocking behaviour. If the underlying child has no
-state being modified in either the :meth:`~py_trees.behaviour.Behaviour.initialise`
-or :meth:`~py_trees.behaviour.Behaviour.terminate` methods (e.g. machinery is
-entirely launched at init or setup time), then conversion to a non-blocking
-representative of the original succeeds. Otherwise, another approach is
-needed. Usually this entails writing a non-blocking counterpart, or
-combination of behaviours to affect the non-blocking characteristics.
+A better approach in this case is to build a non-blocking variant or a
+combination of non-blocking behaviors that handle construction,
+monitoring and destruction of the activity represented by the
+original blocking behaviour.
 """
 
 ##############################################################################
@@ -80,8 +80,6 @@ import functools
 import inspect
 import time
 import typing
-
-from typing import Callable, List, Set, Union  # noqa
 
 from . import behaviour
 from . import blackboard
@@ -94,8 +92,7 @@ from . import common
 
 class Decorator(behaviour.Behaviour):
     """
-    A decorator is responsible for handling the lifecycle of a single
-    child beneath
+    Parent class for decorating a child/subtree with some additional logic.
 
     Args:
         child: the child to be decorated
@@ -104,10 +101,11 @@ class Decorator(behaviour.Behaviour):
     Raises:
         TypeError: if the child is not an instance of :class:`~py_trees.behaviour.Behaviour`
     """
+
     def __init__(
             self,
-            child: behaviour.Behaviour,
-            name=common.Name.AUTO_GENERATED
+            name: str,
+            child: behaviour.Behaviour
     ):
         # Checks
         if not isinstance(child, behaviour.Behaviour):
@@ -119,13 +117,12 @@ class Decorator(behaviour.Behaviour):
         self.decorated = self.children[0]
         self.decorated.parent = self
 
-    def tick(self):
+    def tick(self) -> typing.Iterator[behaviour.Behaviour]:
         """
-        A decorator's tick is exactly the same as a normal proceedings for
-        a Behaviour's tick except that it also ticks the decorated child node.
+        Manage the decorated child through the tick.
 
         Yields:
-            :class:`~py_trees.behaviour.Behaviour`: a reference to itself or one of its children
+            a reference to itself or one of its children
         """
         self.logger.debug("%s.tick()" % self.__class__.__name__)
         # initialise just like other behaviours/composites
@@ -138,17 +135,18 @@ class Decorator(behaviour.Behaviour):
         # resume normal proceedings for a Behaviour's tick
         new_status = self.update()
         if new_status not in list(common.Status):
-            self.logger.error("A behaviour returned an invalid status, setting to INVALID [%s][%s]" % (new_status, self.name))
+            self.logger.error(
+                "A behaviour returned an invalid status, setting to INVALID [%s][%s]" % (new_status, self.name)
+            )
             new_status = common.Status.INVALID
         if new_status != common.Status.RUNNING:
             self.stop(new_status)
         self.status = new_status
         yield self
 
-    def stop(self, new_status):
+    def stop(self, new_status: common.Status) -> None:
         """
-        As with other composites, it checks if the child is running
-        and stops it if that is the case.
+        Check if the child is running (dangling) and stop it if that is the case.
 
         Args:
             new_status (:class:`~py_trees.common.Status`): the behaviour is transitioning to this new status
@@ -163,14 +161,15 @@ class Decorator(behaviour.Behaviour):
             self.decorated.stop(common.Status.INVALID)
         self.status = new_status
 
-    def tip(self):
+    def tip(self) -> typing.Optional[behaviour.Behaviour]:
         """
-        Get the *tip* of this behaviour's subtree (if it has one) after it's last
-        tick. This corresponds to the the deepest node that was running before the
+        Retrieve the *tip* of this behaviour's subtree (if it has one).
+
+        This corresponds to the the deepest node that was running before the
         subtree traversal reversed direction and headed back to this node.
 
         Returns:
-            :class:`~py_trees.behaviour.Behaviour` or :obj:`None`: child behaviour, itself or :obj:`None` if its status is :data:`~py_trees.common.Status.INVALID`
+            child behaviour, or :obj:`None` if its status is :data:`~py_trees.common.Status.INVALID`
         """
         if self.decorated.status != common.Status.INVALID:
             return self.decorated.tip()
@@ -182,6 +181,118 @@ class Decorator(behaviour.Behaviour):
 ##############################################################################
 
 
+class Repeat(Decorator):
+    """
+    Repeat.
+
+    :data:`~py_trees.common.Status.SUCCESS` is
+    :data:`~py_trees.common.Status.RUNNING` up to a specified number at
+    which point this decorator returns :data:`~py_trees.common.Status.SUCCESS`.
+
+    :data:`~py_trees.common.Status.FAILURE` is always
+    :data:`~py_trees.common.Status.FAILURE`.
+
+    Args:
+        child: the child behaviour or subtree
+        num_success: repeat this many times (-1 to repeat indefinitely)
+        name: the decorator name
+    """
+
+    def __init__(
+        self,
+        name: str,
+        child: behaviour.Behaviour,
+        num_success: int
+    ):
+        super().__init__(name=name, child=child)
+        self.success = 0
+        self.num_success = num_success
+
+    def initialise(self) -> None:
+        """
+        Reset the currently registered number of successes.
+        """
+        self.success = 0
+
+    def update(self) -> common.Status:
+        """
+        Repeat until the nth consecutive success.
+
+        Returns:
+            :data:`~py_trees.common.Status.SUCCESS` on nth success,
+            :data:`~py_trees.common.Status.RUNNING` on running, or pre-nth success
+            :data:`~py_trees.common.Status.FAILURE` failure.
+        """
+        if self.decorated.status == common.Status.FAILURE:
+            self.feedback_message = f"failed, aborting [status: {self.success} success from {self.num_success}]"
+            return common.Status.FAILURE
+        elif self.decorated.status == common.Status.SUCCESS:
+            self.success += 1
+            self.feedback_message = f"success [status: {self.success} success from {self.num_success}]"
+            if self.success == self.num_success:
+                return common.Status.SUCCESS
+            else:
+                return common.Status.RUNNING
+        else:  # RUNNING
+            self.feedback_message = f"running [status: {self.success} success from {self.num_success}]"
+            return common.Status.RUNNING
+
+
+class Retry(Decorator):
+    """
+    Keep trying, pastafarianism is within reach.
+
+    :data:`~py_trees.common.Status.FAILURE` is
+    :data:`~py_trees.common.Status.RUNNING` up to a specified number of
+    attempts.
+
+    Args:
+        child: the child behaviour or subtree
+        num_failures: maximum number of permitted failures
+        name: the decorator name
+    """
+
+    def __init__(
+        self,
+        name: str,
+        child: behaviour.Behaviour,
+        num_failures: int
+    ):
+        super().__init__(name=name, child=child)
+        self.failures = 0
+        self.num_failures = num_failures
+
+    def initialise(self) -> None:
+        """
+        Reset the currently registered number of attempts.
+        """
+        self.failures = 0
+
+    def update(self) -> common.Status:
+        """
+        Retry until failure count is reached.
+
+        Returns:
+            :data:`~py_trees.common.Status.SUCCESS` on success,
+            :data:`~py_trees.common.Status.RUNNING` on running, or pre-nth failure
+            :data:`~py_trees.common.Status.FAILURE` only on the nth failure.
+        """
+        if self.decorated.status == common.Status.FAILURE:
+            self.failures += 1
+            if self.failures < self.num_failures:
+                self.feedback_message = f"attempt failed [status: {self.failures} failure from {self.num_failures}]"
+                return common.Status.RUNNING
+            else:
+                self.feedback_message = f"final failure [status: {self.failures} failure from {self.num_failures}]"
+                return common.Status.FAILURE
+        elif self.decorated.status == common.Status.RUNNING:
+            self.feedback_message = f"running [status: {self.failures} failure from {self.num_failures}]"
+            return common.Status.RUNNING
+        else:  # SUCCESS
+            self.feedback_message = f"succeeded [status: {self.failures} failure from {self.num_failures}]"
+            return common.Status.SUCCESS
+
+
 class StatusToBlackboard(Decorator):
     """
     Reflect the status of the decorator's child to the blackboard.
@@ -191,14 +302,14 @@ class StatusToBlackboard(Decorator):
         variable_name: name of the blackboard variable, may be nested, e.g. foo.status
         name: the decorator name
     """
+
     def __init__(
             self,
-            *,
+            name: str,
             child: behaviour.Behaviour,
-            variable_name: str,
-            name: Union[str, common.Name]=common.Name.AUTO_GENERATED,
+            variable_name: str
     ):
-        super().__init__(child=child, name=name)
+        super().__init__(name=name, child=child)
         self.variable_name = variable_name
         name_components = variable_name.split('.')
         self.key = name_components[0]
@@ -206,9 +317,9 @@ class StatusToBlackboard(Decorator):
         self.blackboard = self.attach_blackboard_client(self.name)
         self.blackboard.register_key(key=self.key, access=common.Access.WRITE)
 
-    def update(self):
+    def update(self) -> common.Status:
         """
-        Reflect the decorated child's status to the blackboard and return
+        Reflect the decorated child's status to the blackboard.
 
         Returns: the decorated child's status
         """
@@ -220,24 +331,25 @@ class StatusToBlackboard(Decorator):
         return self.decorated.status
 
 
-ConditionType = Union[
-    Callable[[], bool],
-    Callable[[], common.Status],
-    Callable[[blackboard.Blackboard], bool],
-    Callable[[blackboard.Blackboard], common.Status]
+ConditionType = typing.Union[
+    typing.Callable[[], bool],
+    typing.Callable[[], common.Status],
+    typing.Callable[[blackboard.Blackboard], bool],
+    typing.Callable[[blackboard.Blackboard], common.Status]
 ]
 
 
 class EternalGuard(Decorator):
     """
-    A decorator that continually guards the execution of a subtree.
-    If at any time the guard's condition check fails, then the child
-    behaviour/subtree is invalidated.
+    Continuously guard (with a condition) the execution of a child/subtree.
 
-    .. note:: This decorator's behaviour is stronger than the
-       :term:`guard` typical of a conditional check at the beginning of a
-       sequence of tasks as it continues to check on every tick whilst the
-       task (or sequence of tasks) runs.
+    The eternal guard checks a condition prior to *every* tick of the child/subtree.
+    If at any time the condition fails, the child/subtree is invalidated.
+
+    .. note::
+
+       This is stronger than a conventional :term:`guard` which is only checked once
+       before any and all ticking of what follows the guard.
 
     Args:
         child: the child behaviour or subtree
@@ -246,65 +358,69 @@ class EternalGuard(Decorator):
         name: the decorator name
 
     Examples:
+        Simple conditional function returning True/False:
 
-    Simple conditional function returning True/False:
+        .. code-block:: python
 
-    .. code-block:: python
+            def check():
+                 return True
 
-        def check():
-             return True
+            foo = py_trees.behaviours.Foo()
+            eternal_guard = py_trees.decorators.EternalGuard(
+                name="Eternal Guard",
+                condition=check,
+                child=foo
+            )
 
-        foo = py_trees.behaviours.Foo()
-        eternal_guard = py_trees.decorators.EternalGuard(
-            name="Eternal Guard",
-            condition=check,
-            child=foo
-        )
+        Simple conditional function returning SUCCESS/FAILURE:
 
-    Simple conditional function returning SUCCESS/FAILURE:
+        .. code-block:: python
 
-    .. code-block:: python
+            def check():
+                 return py_trees.common.Status.SUCCESS
 
-        def check():
-             return py_trees.common.Status.SUCCESS
+            foo = py_trees.behaviours.Foo()
+            eternal_guard = py_trees.decorators.EternalGuard(
+                name="Eternal Guard",
+                condition=check,
+                child=foo
+            )
 
-        foo = py_trees.behaviours.Foo()
-        eternal_guard = py_trees.decorators.EternalGuard(
-            name="Eternal Guard",
-            condition=check,
-            child=foo
-        )
+        Conditional function that makes checks against data on the blackboard (the
+        blackboard client with pre-configured access is provided by the EternalGuard
+        instance):
 
-    Conditional function that makes checks against data on the blackboard (the
-    blackboard client with pre-configured access is provided by the EternalGuard
-    instance):
+        .. code-block:: python
 
-    .. code-block:: python
+            def check(blackboard):
+                 return blackboard.velocity > 3.0
 
-        def check(blackboard):
-             return blackboard.velocity > 3.0
+            foo = py_trees.behaviours.Foo()
+            eternal_guard = py_trees.decorators.EternalGuard(
+                name="Eternal Guard",
+                condition=check,
+                blackboard_keys={"velocity"},
+                child=foo
+            )
 
-        foo = py_trees.behaviours.Foo()
-        eternal_guard = py_trees.decorators.EternalGuard(
-            name="Eternal Guard",
-            condition=check,
-            blackboard_keys={"velocity"},
-            child=foo
-        )
+        .. seealso::
 
-    .. seealso:: :meth:`py_trees.idioms.eternal_guard`
+           :ref:`py-trees-demo-eternal-guard` for an alternative means of implementing
+           the eternal guard concept using sequences without memory.
     """
+
     def __init__(
             self,
-            *,
+            name: str,
             child: behaviour.Behaviour,
             # Condition is one of 4 callable types illustrated in the docstring, partials complicate
             # it as well. When typing_extensions are available (very recent) more generally, can use
             # Protocols to handle it. Probably also a sign that it's not a very clean api though...
             condition: typing.Any,
-            blackboard_keys: Union[List[str], Set[str]]=[],
-            name: Union[str, common.Name]=common.Name.AUTO_GENERATED,
+            blackboard_keys: typing.Optional[typing.Union[typing.List[str], typing.Set[str]]] = None
     ):
+        if blackboard_keys is None:
+            blackboard_keys = []
         super().__init__(name=name, child=child)
         self.blackboard = self.attach_blackboard_client(self.name)
         for key in blackboard_keys:
@@ -315,13 +431,12 @@ class EternalGuard(Decorator):
         else:
             self.condition = condition
 
-    def tick(self):
+    def tick(self) -> typing.Iterator[behaviour.Behaviour]:
         """
-        A decorator's tick is exactly the same as a normal proceedings for
-        a Behaviour's tick except that it also ticks the decorated child node.
+        Conditionally manage the child.
 
         Yields:
-            :class:`~py_trees.behaviour.Behaviour`: a reference to itself or one of its children
+            a reference to itself or one of its children
         """
         self.logger.debug("%s.tick()" % self.__class__.__name__)
 
@@ -343,16 +458,23 @@ class EternalGuard(Decorator):
             for node in super().tick():
                 yield node
 
-    def update(self):
+    def update(self) -> common.Status:
         """
+        Reflect the decorated child's status.
+
         The update method is only ever triggered in the child's post-tick, which implies
         that the condition has already been checked and passed (refer to the :meth:`tick` method).
+
+        Returns:
+            the behaviour's new status :class:`~py_trees.common.Status`
         """
         return self.decorated.status
 
 
 class Timeout(Decorator):
     """
+    Executes a child/subtree with a timeout.
+
     A decorator that applies a timeout pattern to an existing behaviour.
     If the timeout is reached, the encapsulated behaviour's
     :meth:`~py_trees.behaviour.Behaviour.stop` method is called with
@@ -360,10 +482,11 @@ class Timeout(Decorator):
     simply directly tick and return with the same status
     as that of it's encapsulated behaviour.
     """
+
     def __init__(self,
+                 name: str,
                  child: behaviour.Behaviour,
-                 name: Union[str, common.Name]=common.Name.AUTO_GENERATED,
-                 duration: float=5.0):
+                 duration: float = 5.0):
         """
         Init with the decorated child and a timeout duration.
 
@@ -374,19 +497,25 @@ class Timeout(Decorator):
         """
         super(Timeout, self).__init__(name=name, child=child)
         self.duration = duration
-        self.finish_time = None
+        self.finish_time = 0.0
 
-    def initialise(self):
+    def initialise(self) -> None:
         """
         Reset the feedback message and finish time on behaviour entry.
         """
         self.finish_time = time.monotonic() + self.duration
         self.feedback_message = ""
 
-    def update(self):
+    def update(self) -> common.Status:
         """
-        Terminate the child and return :data:`~py_trees.common.Status.FAILURE`
+        Fail on timeout, or block / reflect the child's result accordingly.
+
+        Terminate the child and return
+        :data:`~py_trees.common.Status.FAILURE`
         if the timeout is exceeded.
+
+        Returns:
+            the behaviour's new status :class:`~py_trees.common.Status`
         """
         current_time = time.monotonic()
         if self.decorated.status == common.Status.RUNNING and current_time > self.finish_time:
@@ -404,6 +533,99 @@ class Timeout(Decorator):
         return self.decorated.status
 
 
+class Count(Decorator):
+    """
+    Count the number of times it's child has been ticked.
+
+    This increments counters tracking the total number of times
+    it's child has been ticked as well as the number of times it
+    has landed in each respective state.
+
+    It will always re-zero counters on
+    :meth:`~py_trees.behaviour.Behaviour.setup`.
+
+    Attributes:
+        total_tick_count: number of ticks in total
+        running_count: number of ticks resulting in this state
+        success_count: number of ticks resulting in this state
+        failure_count: number of ticks resulting in this state
+        interrupt_count: number of times a higher priority has interrupted
+    """
+
+    def __init__(
+        self,
+        name: str,
+        child: behaviour.Behaviour
+    ):
+        """
+        Init the counter.
+
+        Args:
+            name: the decorator name
+            child: the child behaviour or subtree
+        """
+        super(Count, self).__init__(name=name, child=child)
+        self.total_tick_count = 0
+        self.failure_count = 0
+        self.success_count = 0
+        self.running_count = 0
+        self.interrupt_count = 0
+
+    def setup(self, **kwargs: int) -> None:
+        """
+        Reset the counters.
+        """
+        self.total_tick_count = 0
+        self.failure_count = 0
+        self.running_count = 0
+        self.success_count = 0
+        self.interrupt_count = 0
+
+    def update(self) -> common.Status:
+        """
+        Increment the counter.
+
+        Returns:
+            the behaviour's new status :class:`~py_trees.common.Status`
+        """
+        self.logger.debug("%s.update()" % (self.__class__.__name__))
+        self.total_tick_count += 1
+        if self.decorated.status == common.Status.RUNNING:
+            self.running_count += 1
+        return self.decorated.status
+
+    def terminate(self, new_status: common.Status) -> None:
+        """
+        Increment the completion / interruption counters.
+        """
+        self.logger.debug("%s.terminate(%s->%s)" % (self.__class__.__name__, self.status, new_status))
+        if new_status == common.Status.INVALID:
+            self.interrupt_count += 1
+        elif new_status == common.Status.SUCCESS:
+            self.success_count += 1
+        elif new_status == common.Status.FAILURE:
+            self.failure_count += 1
+        sft = f"S: {self.success_count}, F: {self.failure_count}, T: {self.total_tick_count}"
+        self.feedback_message = f"R: {self.running_count}, {sft}"
+
+    def __repr__(self) -> str:
+        """
+        Generate a simple string representation of the object.
+
+        Returns:
+            string representation
+        """
+        s = "%s\n" % self.name
+        s += "  Status   : %s\n" % self.status
+        s += "  Running  : %s\n" % self.running_count
+        s += "  Success  : %s\n" % self.success_count
+        s += "  Failure  : %s\n" % self.failure_count
+        s += "  Interrupt: %s\n" % self.interrupt_count
+        s += "  ---------------\n"
+        s += "  Total    : %s\n" % self.total_tick_count
+        return s
+
+
 class OneShot(Decorator):
     """
     A decorator that implements the oneshot pattern.
@@ -415,40 +637,50 @@ class OneShot(Decorator):
 
     Completion status is determined by the policy given on construction.
 
-    * With policy :data:`~py_trees.common.OneShotPolicy.ON_SUCCESSFUL_COMPLETION`, the oneshot will activate only when the underlying child returns :data:`~py_trees.common.Status.SUCCESS` (i.e. it permits retries).
-    * With policy :data:`~py_trees.common.OneShotPolicy.ON_COMPLETION`, the oneshot will activate when the child returns :data:`~py_trees.common.Status.SUCCESS` || :data:`~py_trees.common.Status.FAILURE`.
+    * With policy :data:`~py_trees.common.OneShotPolicy.ON_SUCCESSFUL_COMPLETION`, the oneshot will activate
+      only when the underlying child returns :data:`~py_trees.common.Status.SUCCESS` (i.e. it permits retries).
+    * With policy :data:`~py_trees.common.OneShotPolicy.ON_COMPLETION`, the oneshot will activate when the child
+      returns :data:`~py_trees.common.Status.SUCCESS` || :data:`~py_trees.common.Status.FAILURE`.
 
     .. seealso:: :meth:`py_trees.idioms.oneshot`
     """
-    def __init__(self, child,
-                 name=common.Name.AUTO_GENERATED,
-                 policy=common.OneShotPolicy.ON_SUCCESSFUL_COMPLETION):
+
+    def __init__(
+        self,
+        name: str,
+        child: behaviour.Behaviour,
+        policy: common.OneShotPolicy
+    ):
         """
         Init with the decorated child.
 
         Args:
-            name (:obj:`str`): the decorator name
-            child (:class:`~py_trees.behaviour.Behaviour`): behaviour to time
-            policy (:class:`~py_trees.common.OneShotPolicy`): policy determining when the oneshot should activate
+            child: behaviour to shoot
+            name: the decorator name
+            policy: policy determining when the oneshot should activate
         """
         super(OneShot, self).__init__(name=name, child=child)
-        self.final_status = None
+        self.final_status: typing.Optional[common.Status] = None
         self.policy = policy
 
-    def update(self):
+    def update(self) -> common.Status:
         """
         Bounce if the child has already successfully completed.
+
+        Returns:
+            the behaviour's new status :class:`~py_trees.common.Status`
         """
         if self.final_status:
             self.logger.debug("{}.update()[bouncing]".format(self.__class__.__name__))
             return self.final_status
         return self.decorated.status
 
-    def tick(self):
+    def tick(self) -> typing.Iterator[behaviour.Behaviour]:
         """
-        Select between decorator (single child) and behaviour (no children) style
-        ticks depending on whether or not the underlying child has been ticked
-        successfully to completion previously.
+        Tick the child or bounce back with the original status if already completed.
+
+        Yields:
+            a reference to itself or a behaviour in it's child subtree
         """
         if self.final_status:
             # ignore the child
@@ -459,10 +691,13 @@ class OneShot(Decorator):
             for node in Decorator.tick(self):
                 yield node
 
-    def terminate(self, new_status):
+    def terminate(self, new_status: common.Status) -> None:
         """
-        If returning :data:`~py_trees.common.Status.SUCCESS` for the first time,
-        flag it so future ticks will block entry to the child.
+        Prevent further entry if finishing with :data:`~py_trees.common.Status.SUCCESS`.
+
+        This uses a flag to register that the behaviour has gone through to completion.
+        In future ticks, it will block entry to the child and just return the original
+        status result.
         """
         if not self.final_status and new_status in self.policy.value:
             self.logger.debug("{}.terminate({})[oneshot completed]".format(self.__class__.__name__, new_status))
@@ -476,23 +711,27 @@ class Inverter(Decorator):
     """
     A decorator that inverts the result of a class's update function.
     """
-    def __init__(self, child, name=common.Name.AUTO_GENERATED):
+
+    def __init__(
+        self,
+        name: str,
+        child: behaviour.Behaviour
+    ):
         """
         Init with the decorated child.
 
         Args:
-            child (:class:`~py_trees.behaviour.Behaviour`): behaviour to time
-            name (:obj:`str`): the decorator name
+            name : the decorator name
+            child : behaviour to invert
         """
         super(Inverter, self).__init__(name=name, child=child)
 
-    def update(self):
+    def update(self) -> common.Status:
         """
-        Flip :data:`~py_trees.common.Status.FAILURE` and
-        :data:`~py_trees.common.Status.SUCCESS`
+        Flip :data:`~py_trees.common.Status.SUCCESS` and :data:`~py_trees.common.Status.FAILURE`.
 
         Returns:
-            :class:`~py_trees.common.Status`: the behaviour's new status :class:`~py_trees.common.Status`
+            the behaviour's new status :class:`~py_trees.common.Status`
         """
         if self.decorated.status == common.Status.SUCCESS:
             self.feedback_message = "success -> failure"
@@ -506,19 +745,19 @@ class Inverter(Decorator):
 
 class RunningIsFailure(Decorator):
     """
-    Got to be snappy! We want results...yesterday!
+    Got to be snappy! We want results...yesterday.
     """
-    def update(self):
+
+    def update(self) -> common.Status:
         """
-        Return the decorated child's status unless it is
-        :data:`~py_trees.common.Status.RUNNING` in which case, return
-        :data:`~py_trees.common.Status.FAILURE`.
+        Reflect :data:`~py_trees.common.Status.RUNNING` as :data:`~py_trees.common.Status.FAILURE`.
 
         Returns:
-            :class:`~py_trees.common.Status`: the behaviour's new status :class:`~py_trees.common.Status`
+            the behaviour's new status :class:`~py_trees.common.Status`
         """
         if self.decorated.status == common.Status.RUNNING:
-            self.feedback_message = "running is failure" + (" [%s]" % self.decorated.feedback_message if self.decorated.feedback_message else "")
+            self.feedback_message = "running is failure" \
+                + (" [%s]" % self.decorated.feedback_message if self.decorated.feedback_message else "")
             return common.Status.FAILURE
         else:
             self.feedback_message = self.decorated.feedback_message
@@ -529,17 +768,17 @@ class RunningIsSuccess(Decorator):
     """
     Don't hang around...
     """
-    def update(self):
+
+    def update(self) -> common.Status:
         """
-        Return the decorated child's status unless it is
-        :data:`~py_trees.common.Status.RUNNING` in which case, return
-        :data:`~py_trees.common.Status.SUCCESS`.
+        Reflect :data:`~py_trees.common.Status.RUNNING` as :data:`~py_trees.common.Status.SUCCESS`.
 
         Returns:
-            :class:`~py_trees.common.Status`: the behaviour's new status :class:`~py_trees.common.Status`
+            the behaviour's new status :class:`~py_trees.common.Status`
         """
         if self.decorated.status == common.Status.RUNNING:
-            self.feedback_message = "running is success" + (" [%s]" % self.decorated.feedback_message if self.decorated.feedback_message else "")
+            self.feedback_message = "running is success" \
+                + (" [%s]" % self.decorated.feedback_message if self.decorated.feedback_message else "")
             return common.Status.SUCCESS
         self.feedback_message = self.decorated.feedback_message
         return self.decorated.status
@@ -549,17 +788,17 @@ class FailureIsSuccess(Decorator):
     """
     Be positive, always succeed.
     """
-    def update(self):
+
+    def update(self) -> common.Status:
         """
-        Return the decorated child's status unless it is
-        :data:`~py_trees.common.Status.FAILURE` in which case, return
-        :data:`~py_trees.common.Status.SUCCESS`.
+        Reflect :data:`~py_trees.common.Status.FAILURE` as :data:`~py_trees.common.Status.SUCCESS`.
 
         Returns:
-            :class:`~py_trees.common.Status`: the behaviour's new status :class:`~py_trees.common.Status`
+            the behaviour's new status :class:`~py_trees.common.Status`
         """
         if self.decorated.status == common.Status.FAILURE:
-            self.feedback_message = "failure is success" + (" [%s]" % self.decorated.feedback_message if self.decorated.feedback_message else "")
+            self.feedback_message = "failure is success" \
+                + (" [%s]" % self.decorated.feedback_message if self.decorated.feedback_message else "")
             return common.Status.SUCCESS
         self.feedback_message = self.decorated.feedback_message
         return self.decorated.status
@@ -569,17 +808,17 @@ class FailureIsRunning(Decorator):
     """
     Dont stop running.
     """
-    def update(self):
+
+    def update(self) -> common.Status:
         """
-        Return the decorated child's status unless it is
-        :data:`~py_trees.common.Status.FAILURE` in which case, return
-        :data:`~py_trees.common.Status.RUNNING`.
+        Reflect :data:`~py_trees.common.Status.FAILURE` as :data:`~py_trees.common.Status.RUNNING`.
 
         Returns:
-            :class:`~py_trees.common.Status`: the behaviour's new status :class:`~py_trees.common.Status`
+            the behaviour's new status :class:`~py_trees.common.Status`
         """
         if self.decorated.status == common.Status.FAILURE:
-            self.feedback_message = "failure is running" + (" [%s]" % self.decorated.feedback_message if self.decorated.feedback_message else "")
+            self.feedback_message = "failure is running" \
+                + (" [%s]" % self.decorated.feedback_message if self.decorated.feedback_message else "")
             return common.Status.RUNNING
         self.feedback_message = self.decorated.feedback_message
         return self.decorated.status
@@ -589,17 +828,17 @@ class SuccessIsFailure(Decorator):
     """
     Be depressed, always fail.
     """
-    def update(self):
+
+    def update(self) -> common.Status:
         """
-        Return the decorated child's status unless it is
-        :data:`~py_trees.common.Status.SUCCESS` in which case, return
-        :data:`~py_trees.common.Status.FAILURE`.
+        Reflect :data:`~py_trees.common.Status.SUCCESS` as :data:`~py_trees.common.Status.FAILURE`.
 
         Returns:
-            :class:`~py_trees.common.Status`: the behaviour's new status :class:`~py_trees.common.Status`
+            the behaviour's new status :class:`~py_trees.common.Status`
         """
         if self.decorated.status == common.Status.SUCCESS:
-            self.feedback_message = "success is failure" + (" [%s]" % self.decorated.feedback_message if self.decorated.feedback_message else "")
+            self.feedback_message = "success is failure" \
+                + (" [%s]" % self.decorated.feedback_message if self.decorated.feedback_message else "")
             return common.Status.FAILURE
         self.feedback_message = self.decorated.feedback_message
         return self.decorated.status
@@ -607,16 +846,15 @@ class SuccessIsFailure(Decorator):
 
 class SuccessIsRunning(Decorator):
     """
-    It never ends...
+    The tickling never ends...
     """
-    def update(self):
+
+    def update(self) -> common.Status:
         """
-        Return the decorated child's status unless it is
-        :data:`~py_trees.common.Status.SUCCESS` in which case, return
-        :data:`~py_trees.common.Status.RUNNING`.
+        Reflect :data:`~py_trees.common.Status.SUCCESS` as :data:`~py_trees.common.Status.RUNNING`.
 
         Returns:
-            :class:`~py_trees.common.Status`: the behaviour's new status :class:`~py_trees.common.Status`
+            the behaviour's new status :class:`~py_trees.common.Status`
         """
         if self.decorated.status == common.Status.SUCCESS:
             self.feedback_message = "success is running [%s]" % self.decorated.feedback_message
@@ -627,37 +865,46 @@ class SuccessIsRunning(Decorator):
 
 class Condition(Decorator):
     """
+    A blocking conditional decorator.
+
     Encapsulates a behaviour and wait for it's status to flip to the
     desired state. This behaviour will tick with
     :data:`~py_trees.common.Status.RUNNING` while waiting and
     :data:`~py_trees.common.Status.SUCCESS` when the flip occurs.
     """
-    def __init__(self,
-                 child,
-                 name=common.Name.AUTO_GENERATED,
-                 status=common.Status.SUCCESS):
+
+    def __init__(
+        self,
+        name: str,
+        child: behaviour.Behaviour,
+        status: common.Status
+    ):
         """
         Initialise with child and optional name, status variables.
 
         Args:
-            child (:class:`~py_trees.behaviour.Behaviour`): the child to be decorated
-            name (:obj:`str`): the decorator name (can be None)
-            status (:class:`~py_trees.common.Status`): the desired status to watch for
+            name: the decorator name
+            child: the child to be decorated
+            status: the desired status to watch for
         """
-        super(Condition, self).__init__(child, name)
+        super(Condition, self).__init__(name=name, child=child)
         self.succeed_status = status
 
-    def update(self):
+    def update(self) -> common.Status:
         """
+        Check if the condtion has triggered, block otherwise.
+
         :data:`~py_trees.common.Status.SUCCESS` if the decorated child has returned
         the specified status, otherwise :data:`~py_trees.common.Status.RUNNING`.
         This decorator will never return :data:`~py_trees.common.Status.FAILURE`
 
         Returns:
-            :class:`~py_trees.common.Status`: the behaviour's new status :class:`~py_trees.common.Status`
+            the behaviour's new status :class:`~py_trees.common.Status`
         """
         self.logger.debug("%s.update()" % self.__class__.__name__)
-        self.feedback_message = "'{0}' has status {1}, waiting for {2}".format(self.decorated.name, self.decorated.status, self.succeed_status)
+        self.feedback_message = (
+            f"'{self.decorated.name}' has status {self.decorated.status}, waiting for {self.succeed_status}"
+        )
         if self.decorated.status == self.succeed_status:
             return common.Status.SUCCESS
         return common.Status.RUNNING

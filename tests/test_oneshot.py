@@ -26,11 +26,21 @@ logger = py_trees.logging.Logger("Nosetest")
 ##############################################################################
 
 
-def test_oneshot_with_fail_causes_reentry():
-    def decorator_oneshot(child, policy):
-        return py_trees.decorators.OneShot(child=child, policy=policy)
+def test_oneshot_with_fail_causes_reentry() -> None:
+    def decorator_oneshot(
+        child: py_trees.behaviour.Behaviour,
+        policy: py_trees.common.OneShotPolicy
+    ) -> py_trees.decorators.OneShot:
+        return py_trees.decorators.OneShot(
+            name="OneShot",
+            child=child,
+            policy=policy
+        )
 
-    def idiom_oneshot(child, policy):
+    def idiom_oneshot(
+        child: py_trees.behaviour.Behaviour,
+        policy: py_trees.common.OneShotPolicy
+    ) -> py_trees.behaviour.Behaviour:
         return py_trees.idioms.oneshot(
             name="Oneshot Idiom",
             variable_name="oneshot",
@@ -50,11 +60,14 @@ def test_oneshot_with_fail_causes_reentry():
             py_trees.tests.clear_blackboard()
 
             # Tree
-            fail_then_run = py_trees.behaviours.Count(
+            fail_then_run = py_trees.behaviours.StatusQueue(
                 name="Fail Then Run",
-                fail_until=1,
-                running_until=2,
-                reset=False
+                queue = [
+                    py_trees.common.Status.FAILURE,
+                    py_trees.common.Status.RUNNING,
+                    py_trees.common.Status.RUNNING,
+                ],
+                eventually=py_trees.common.Status.FAILURE
             )
             oneshot = create_tree(fail_then_run, policy)
 
@@ -75,8 +88,8 @@ def test_oneshot_with_fail_causes_reentry():
                   console.yellow + "{}".format(fail_then_run.status) +
                   console.reset + " [{}]".format(py_trees.common.Status.FAILURE)
                   )
-            assert(oneshot.status == py_trees.common.Status.FAILURE)
-            assert(fail_then_run.status == py_trees.common.Status.FAILURE)
+            assert oneshot.status == py_trees.common.Status.FAILURE
+            assert fail_then_run.status == py_trees.common.Status.FAILURE
 
             # Ticking
             py_trees.tests.tick_tree(
@@ -109,13 +122,14 @@ def test_oneshot_with_fail_causes_reentry():
                   console.yellow + "{}".format(fail_then_run.status) +
                   console.reset + " [{}]".format(expected_behaviour_status[title][policy])
                   )
-            assert(oneshot.status == expected_oneshot_status[policy])
-            assert(fail_then_run.status == expected_behaviour_status[title][policy])
+            assert oneshot.status == expected_oneshot_status[policy]
+            assert fail_then_run.status == expected_behaviour_status[title][policy]
 
 
-def untest_oneshot_with_subtrees_and_interrupt():
+def untest_oneshot_with_subtrees_and_interrupt() -> None:
     sequence_subtree = py_trees.composites.Sequence(
         name="Sequence",
+        memory=True,
         children=[
             py_trees.behaviours.Success(name="Success 1"),
             py_trees.behaviours.Success(name="Success 2")
@@ -123,13 +137,18 @@ def untest_oneshot_with_subtrees_and_interrupt():
     )
     selector_subtree = py_trees.composites.Selector(
         name="Selector",
+        memory=False,
         children=[
             py_trees.behaviours.Failure(name="Failure"),
             py_trees.behaviours.Success(name="Success")
         ]
     )
     for worker_subtree in [sequence_subtree, selector_subtree]:
-        decorator_oneshot = py_trees.decorators.OneShot(child=worker_subtree)
+        decorator_oneshot = py_trees.decorators.OneShot(
+            name="OneShot",
+            child=worker_subtree,
+            policy=py_trees.common.OneShotPolicy.ON_SUCCESSFUL_COMPLETION
+        )
         idiom_oneshot = py_trees.idioms.oneshot(
             name="OneShot",
             variable_name="oneshot",
@@ -141,10 +160,16 @@ def untest_oneshot_with_subtrees_and_interrupt():
             py_trees.tests.clear_blackboard()
 
             # Tree with higher priority branch
-            root = py_trees.composites.Selector(name="Root")
-            fail_after_one = py_trees.behaviours.Count(
-                name="HighPriority", fail_until=1, running_until=1, success_until=2)
-            root.add_children([fail_after_one, oneshot])
+            root = py_trees.composites.Selector(name="Root", memory=False)
+            high_priority = py_trees.behaviours.StatusQueue(
+                name="High Priority",
+                queue = [
+                    py_trees.common.Status.FAILURE,
+                    py_trees.common.Status.SUCCESS,
+                ],
+                eventually=None
+            )
+            root.add_children([high_priority, oneshot])
 
             # Ticking
             py_trees.tests.tick_tree(
@@ -170,8 +195,8 @@ def untest_oneshot_with_subtrees_and_interrupt():
                   console.yellow + "{}".format(worker_subtree.status) +
                   console.reset + " [{}]".format(py_trees.common.Status.INVALID)
                   )
-            assert(oneshot.status == py_trees.common.Status.INVALID)
-            assert(worker_subtree.status == py_trees.common.Status.INVALID)
+            assert oneshot.status == py_trees.common.Status.INVALID
+            assert worker_subtree.status == py_trees.common.Status.INVALID
             py_trees.tests.tick_tree(
                 root=root,
                 from_tick=3,
@@ -188,5 +213,5 @@ def untest_oneshot_with_subtrees_and_interrupt():
                   console.yellow + "{}".format(worker_subtree.status) +
                   console.reset + " [{}]".format(py_trees.common.Status.INVALID)
                   )
-            assert(oneshot.status == py_trees.common.Status.SUCCESS)
-            assert(worker_subtree.status == py_trees.common.Status.INVALID)
+            assert oneshot.status == py_trees.common.Status.SUCCESS
+            assert worker_subtree.status == py_trees.common.Status.INVALID

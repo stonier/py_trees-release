@@ -8,6 +8,8 @@
 ##############################################################################
 
 """
+A demonstration of the 'either_or' idiom.
+
 .. argparse::
    :module: py_trees.demos.either_or
    :func: command_line_argument_parser
@@ -25,10 +27,11 @@
 import argparse
 import functools
 import operator
-import py_trees
 import sys
 import time
+import typing
 
+import py_trees
 import py_trees.console as console
 
 ##############################################################################
@@ -36,7 +39,7 @@ import py_trees.console as console
 ##############################################################################
 
 
-def description(root):
+def description(root: py_trees.behaviour.Behaviour) -> str:
     content = "A demonstration of the 'either_or' idiom.\n\n"
     content += "This behaviour tree pattern enables triggering of subtrees\n"
     content += "with equal priority (first in, first served).\n"
@@ -51,8 +54,7 @@ def description(root):
     content += "\n"
     if py_trees.console.has_colours:
         banner_line = console.green + "*" * 79 + "\n" + console.reset
-        s = "\n"
-        s += banner_line
+        s = banner_line
         s += console.bold_white + "Either Or".center(79) + "\n" + console.reset
         s += banner_line
         s += "\n"
@@ -64,14 +66,14 @@ def description(root):
     return s
 
 
-def epilog():
+def epilog() -> typing.Optional[str]:
     if py_trees.console.has_colours:
         return console.cyan + "And his noodly appendage reached forth to tickle the blessed...\n" + console.reset
     else:
         return None
 
 
-def command_line_argument_parser():
+def command_line_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=description(create_root()),
                                      epilog=epilog(),
                                      formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -82,11 +84,14 @@ def command_line_argument_parser():
     return parser
 
 
-def pre_tick_handler(behaviour_tree):
+def pre_tick_handler(behaviour_tree: py_trees.trees.BehaviourTree) -> None:
     print("\n--------- Run %s ---------\n" % behaviour_tree.count)
 
 
-def post_tick_handler(snapshot_visitor, behaviour_tree):
+def post_tick_handler(
+    snapshot_visitor: py_trees.visitors.SnapshotVisitor,
+    behaviour_tree: py_trees.trees.BehaviourTree
+) -> None:
     print(
         "\n" + py_trees.display.unicode_tree(
             root=behaviour_tree.root,
@@ -97,7 +102,7 @@ def post_tick_handler(snapshot_visitor, behaviour_tree):
     print(py_trees.display.unicode_blackboard())
 
 
-def create_root():
+def create_root() -> py_trees.behaviour.Behaviour:
     trigger_one = py_trees.decorators.FailureIsRunning(
         name="FisR",
         child=py_trees.behaviours.SuccessEveryN(
@@ -115,19 +120,23 @@ def create_root():
     enable_joystick_one = py_trees.behaviours.SetBlackboardVariable(
         name="Joy1 - Enabled",
         variable_name="joystick_one",
-        variable_value="enabled")
+        variable_value="enabled",
+        overwrite=True)
     enable_joystick_two = py_trees.behaviours.SetBlackboardVariable(
         name="Joy2 - Enabled",
         variable_name="joystick_two",
-        variable_value="enabled")
+        variable_value="enabled",
+        overwrite=True)
     reset_joystick_one = py_trees.behaviours.SetBlackboardVariable(
         name="Joy1 - Disabled",
         variable_name="joystick_one",
-        variable_value="disabled")
+        variable_value="disabled",
+        overwrite=True)
     reset_joystick_two = py_trees.behaviours.SetBlackboardVariable(
         name="Joy2 - Disabled",
         variable_name="joystick_two",
-        variable_value="disabled")
+        variable_value="disabled",
+        overwrite=True)
     task_one = py_trees.behaviours.TickCounter(
         name="Task 1",
         duration=2,
@@ -152,13 +161,13 @@ def create_root():
         name="Root",
         policy=py_trees.common.ParallelPolicy.SuccessOnAll(synchronise=False)
     )
-    reset = py_trees.composites.Sequence(name="Reset")
+    reset = py_trees.composites.Sequence(name="Reset", memory=True)
     reset.add_children([reset_joystick_one, reset_joystick_two])
-    joystick_one_events = py_trees.composites.Sequence(name="Joy1 Events")
+    joystick_one_events = py_trees.composites.Sequence(name="Joy1 Events", memory=True)
     joystick_one_events.add_children([trigger_one, enable_joystick_one])
-    joystick_two_events = py_trees.composites.Sequence(name="Joy2 Events")
+    joystick_two_events = py_trees.composites.Sequence(name="Joy2 Events", memory=True)
     joystick_two_events.add_children([trigger_two, enable_joystick_two])
-    tasks = py_trees.composites.Selector(name="Tasks")
+    tasks = py_trees.composites.Selector(name="Tasks", memory=False)
     tasks.add_children([either_or, idle])
     root.add_children([reset, joystick_one_events, joystick_two_events, tasks])
     return root
@@ -169,10 +178,8 @@ def create_root():
 ##############################################################################
 
 
-def main():
-    """
-    Entry point for the demo script.
-    """
+def main() -> None:
+    """Entry point for the demo script."""
     args = command_line_argument_parser().parse_args()
     # py_trees.logging.level = py_trees.logging.Level.DEBUG
     root = create_root()
@@ -201,7 +208,7 @@ def main():
     ####################
     if args.interactive:
         py_trees.console.read_single_keypress()
-    for unused_i in range(1, 11):
+    for _unused_i in range(1, 11):
         try:
             behaviour_tree.tick()
             if args.interactive:

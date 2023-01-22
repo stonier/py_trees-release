@@ -11,7 +11,7 @@ install_requires = [  # ] if os.environ.get('AMENT_PREFIX_PATH') else [
     'pydot'
 ]
 
-tests_require = ['flake8', 'mypy==0.812', 'nose', 'nose-htmloutput', 'pydot', 'pytest', 'yanc']
+tests_require = ['flake8', 'mypy==0.812', 'pydot', 'pytest', 'tox']
 
 extras_require = {} if os.environ.get('AMENT_PREFIX_PATH') else {
     'test': tests_require,
@@ -33,7 +33,7 @@ extras_require = {} if os.environ.get('AMENT_PREFIX_PATH') else {
 # That is the price paid for a pypi and catkin package.
 d = setup(
     name='py_trees',
-    version='2.1.6',  # also update package.xml and version.py
+    version='2.1.6',  # remember to also update package.xml and version.py
     packages=find_packages(exclude=['tests*', 'docs*']),
     package_data={"py_trees": ["py.typed"]},
     install_requires=install_requires,
@@ -54,7 +54,7 @@ d = setup(
     description="pythonic implementation of behaviour trees",
     long_description="A behaviour tree implementation for rapid development of small scale decision making engines that don't need to be real time reactive.",
     license='BSD',
-    test_suite='nose.collector',
+    test_suite='tests',
     tests_require=tests_require,
     entry_points={
         'console_scripts': [
@@ -67,7 +67,8 @@ d = setup(
             'py-trees-demo-context-switching = py_trees.demos.context_switching:main',
             'py-trees-demo-display-modes = py_trees.demos.display_modes:main',
             'py-trees-demo-dot-graphs = py_trees.demos.dot_graphs:main',
-            'py-trees-demo-idiom-either-or = py_trees.demos.either_or:main',
+            'py-trees-demo-either-or = py_trees.demos.either_or:main',
+            'py-trees-demo-eternal-guard = py_trees.demos.eternal_guard:main',
             'py-trees-demo-logging = py_trees.demos.logging:main',
             'py-trees-demo-pick-up-where-you-left-off = py_trees.demos.pick_up_where_you_left_off:main',
             'py-trees-demo-selector = py_trees.demos.selector:main',

@@ -3,7 +3,20 @@ Release Notes
 
 Forthcoming
 -----------
-* ...
+* [common] remove viral ramifications of Any from ComparisonExpression, `https://github.com/splintered-reality/py_trees/pull/386`_
+* [display] bugfix off-the-grid bb nodes and render exclusive write edges, `https://github.com/splintered-reality/py_trees/pull/383`_
+* [tests] it's mypy now, by the time this ends, it'll be someone else's py , `https://github.com/splintered-reality/py_trees/pull/380`_
+* [behaviours, decorators] behaviours.Count -> behaviours.StatusQueue + decorators.Count (new), `#376 <https://github.com/splintered-reality/py_trees/pull/376>`_
+* [behaviours, decorators, composites] abstract base classes, `#375 <https://github.com/splintered-reality/py_trees/pull/375>`_
+* [behaviours] StatusSequence -> StatusQueue, `#372 <https://github.com/splintered-reality/py_trees/pull/372>`_
+* [decorators] repeat and retry, `#371 <https://github.com/splintered-reality/py_trees/pull/371>`_
+* [composites] use explicit composite arguments, `#370 <https://github.com/splintered-reality/py_trees/pull/370>`_
+* [composites] restart the sequence, but allow children to retain their state `#368 <https://github.com/splintered-reality/py_trees/pull/368>`_
+* [common] a practical inf, `#366 <https://github.com/splintered-reality/py_trees/pull/366>`_
+* [composites] avoid redundant stop for non-running children `#360 <https://github.com/splintered-reality/py_trees/pull/360>`_
+* [display] bugfix unicode use when no unicode for dot `#359 <https://github.com/splintered-reality/py_trees/pull/359>`_
+* [tests] use tox, flake8 in prem-merge `#354 <https://github.com/splintered-reality/py_trees/pull/354>`_
+* [tests] switch from deprecating nose to pytest, `#350 <https://github.com/splintered-reality/py_trees/pull/350>`_
 
 2.1.6 (2021-05-31)
 ------------------

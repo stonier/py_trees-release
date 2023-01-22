@@ -8,8 +8,7 @@
 ##############################################################################
 
 """
-A library of subtree creators that build complex patterns of behaviours
-representing common behaviour tree idioms.
+A library of subtree creators that build common, but complex patterns of behaviours.
 """
 
 ##############################################################################
@@ -18,7 +17,6 @@ representing common behaviour tree idioms.
 
 import operator
 import typing
-import uuid
 
 from . import behaviour
 from . import behaviours
@@ -33,9 +31,12 @@ from . import decorators
 
 
 def pick_up_where_you_left_off(
-        name="Pickup Where You Left Off Idiom",
-        tasks=[]):
+    name: str,
+    tasks: typing.List[behaviour.BehaviourSubClass]
+) -> behaviour.Behaviour:
     """
+    Create an idiom that enables a sequence of tasks to pick up where it left off.
+
     Rudely interrupted while enjoying a sandwich, a caveman (just because
     they wore loincloths does not mean they were not civilised), picks
     up his club and fends off the sabre-tooth tiger invading his sanctum
@@ -71,9 +72,9 @@ def pick_up_where_you_left_off(
     Returns:
         :class:`~py_trees.behaviour.Behaviour`: root of the generated subtree
     """
-    root = composites.Sequence(name=name)
+    root = composites.Sequence(name=name, memory=True)
     for task in tasks:
-        task_selector = composites.Selector(name="Do or Don't")
+        task_selector = composites.Selector(name="Do or Don't", memory=False)
         task_guard = behaviours.CheckBlackboardVariableValue(
             name="Done?",
             check=common.ComparisonExpression(
@@ -82,11 +83,12 @@ def pick_up_where_you_left_off(
                 operator=operator.eq
             )
         )
-        sequence = composites.Sequence(name="Worker")
+        sequence = composites.Sequence(name="Worker", memory=True)
         mark_task_done = behaviours.SetBlackboardVariable(
             name="Mark\n" + task.name.lower().replace(" ", "_") + "_done",
             variable_name=task.name.lower().replace(" ", "_") + "_done",
-            variable_value=True
+            variable_value=True,
+            overwrite=True
         )
         sequence.add_children([task, mark_task_done])
         task_selector.add_children([task_guard, sequence])
@@ -100,96 +102,15 @@ def pick_up_where_you_left_off(
     return root
 
 
-def eternal_guard(
-        subtree: behaviour.Behaviour,
-        name: str="Eternal Guard",
-        conditions: typing.List[behaviour.Behaviour]=[],
-        blackboard_namespace: str=None) -> behaviour.Behaviour:
-    """
-    The eternal guard idiom implements a stronger :term:`guard` than the typical check at the
-    beginning of a sequence of tasks. Here they guard continuously while the task sequence
-    is being executed. While executing, if any of the guards should update with
-    status :data:`~common.Status.FAILURE`, then the task sequence is terminated.
-
-    .. graphviz:: dot/idiom-eternal-guard.dot
-        :align: center
-
-    Args:
-        subtree: behaviour(s) that actually do the work
-        name: the name to use on the root behaviour of the idiom subtree
-        conditions: behaviours on which tasks are conditional
-        blackboard_namespace: applied to condition variable results stored on the blackboard (default: derived from the idiom name)
-
-    Returns:
-        the root of the idiom subtree
-
-    .. seealso:: :class:`py_trees.decorators.EternalGuard`
-    """
-    if blackboard_namespace is None:
-        blackboard_namespace = name.lower().replace(" ", "_")
-    blackboard_variable_names = []
-    # construct simple, easy to read, variable names (risk of conflict)
-    counter = 1
-    for condition in conditions:
-        suffix = "" if len(conditions) == 1 else "_{}".format(counter)
-        blackboard_variable_names.append(
-            blackboard.Blackboard.separator +
-            blackboard_namespace +
-            "_condition" +
-            suffix
-        )
-        counter += 1
-    # if there is just one blackboard name already on the blackboard, switch to unique names
-    conflict = False
-    for name in blackboard_variable_names:
-        try:
-            unused_name = blackboard.Blackboard.get(name)
-            conflict = True
-        except KeyError:
-            pass
-    if conflict:
-        blackboard_variable_names = []
-        counter = 1
-        unique_id = uuid.uuid4()
-        for condition in conditions:
-            suffix = "" if len(conditions) == 1 else "_{}".format(counter)
-            blackboard_variable_names.append(blackboard_namespace + "_" + str(unique_id) + "_condition" + suffix)
-            counter += 1
-    # build the tree
-    root = composites.Parallel(
-        name=name,
-        policy=common.ParallelPolicy.SuccessOnAll(synchronise=False)
-    )
-    guarded_tasks = composites.Selector(name="Guarded Tasks")
-    for condition, blackboard_variable_name in zip(conditions, blackboard_variable_names):
-        decorated_condition = decorators.StatusToBlackboard(
-            name="StatusToBB",
-            child=condition,
-            variable_name=blackboard_variable_name
-        )
-        root.add_child(decorated_condition)
-        guarded_tasks.add_child(
-            behaviours.CheckBlackboardVariableValue(
-                name="Abort on\n{}".format(condition.name),
-                check=common.ComparisonExpression(
-                    variable=blackboard_variable_name,
-                    value=common.Status.FAILURE,
-                    operator=operator.eq
-                )
-            )
-        )
-    guarded_tasks.add_child(subtree)
-    root.add_child(guarded_tasks)
-    return root
-
-
 def either_or(
     conditions: typing.List[common.ComparisonExpression],
     subtrees: typing.List[behaviour.Behaviour],
-    name="Either Or",
-    namespace: typing.Optional[str]=None
+    name: str = "Either Or",
+    namespace: typing.Optional[str] = None
 ) -> behaviour.Behaviour:
     """
+    Create an idiom with selector-like qualities, but no priority concerns.
+
     Often you need a kind of selector that doesn't implement prioritisations, i.e.
     you would like different paths to be selected on a first-come, first-served basis.
 
@@ -246,7 +167,7 @@ def either_or(
         raise ValueError("Must be the same number of conditions as subtrees [{} != {}]".format(
             len(conditions), len(subtrees))
         )
-    root = composites.Sequence(name=name)
+    root = composites.Sequence(name=name, memory=True)
     configured_namespace: str = namespace if namespace is not None else \
         blackboard.Blackboard.separator + name.lower().replace("-", "_").replace(" ", "_") + \
         blackboard.Blackboard.separator + str(root.id).replace("-", "_").replace(" ", "_") + \
@@ -257,9 +178,9 @@ def either_or(
         operator=operator.xor,
         namespace=configured_namespace
     )
-    chooser = composites.Selector(name="Chooser")
+    chooser = composites.Selector(name="Chooser", memory=False)
     for counter in range(1, len(conditions) + 1):
-        sequence = composites.Sequence(name="Option {}".format(str(counter)))
+        sequence = composites.Sequence(name="Option {}".format(str(counter)), memory=True)
         variable_name = configured_namespace + blackboard.Blackboard.separator + str(counter)
         disabled = behaviours.CheckBlackboardVariableValue(
             name="Enabled?",
@@ -277,13 +198,14 @@ def either_or(
 
 def oneshot(
     behaviour: behaviour.Behaviour,
-    name: str="Oneshot",
-    variable_name: str="oneshot",
-    policy: common.OneShotPolicy=common.OneShotPolicy.ON_SUCCESSFUL_COMPLETION
+    name: str = "Oneshot",
+    variable_name: str = "oneshot",
+    policy: common.OneShotPolicy = common.OneShotPolicy.ON_SUCCESSFUL_COMPLETION
 ) -> behaviour.Behaviour:
     """
-    Ensure that a particular pattern is executed through to
-    completion just once. Thereafter it will just rebound with the completion status.
+    Ensure that a particular pattern is executed through to completion just once.
+
+    Thereafter it will just rebound with the completion status.
 
     .. graphviz:: dot/oneshot.dot
 
@@ -304,9 +226,8 @@ def oneshot(
 
     .. seealso:: :class:`py_trees.decorators.OneShot`
     """
-    subtree_root = composites.Selector(name=name)
-    oneshot_with_guard = composites.Sequence(
-        name="Oneshot w/ Guard")
+    subtree_root = composites.Selector(name=name, memory=False)
+    oneshot_with_guard = composites.Sequence(name="Oneshot w/ Guard", memory=True)
     check_not_done = decorators.Inverter(
         name="Not Completed?",
         child=behaviours.CheckBlackboardVariableExists(
@@ -317,26 +238,28 @@ def oneshot(
     set_flag_on_success = behaviours.SetBlackboardVariable(
         name="Mark Done\n[SUCCESS]",
         variable_name=variable_name,
-        variable_value=common.Status.SUCCESS
+        variable_value=common.Status.SUCCESS,
+        overwrite=True
     )
     # If it's a sequence, don't double-nest it in a redundant manner
     if isinstance(behaviour, composites.Sequence):
         behaviour.add_child(set_flag_on_success)
         sequence = behaviour
     else:
-        sequence = composites.Sequence(name="OneShot")
+        sequence = composites.Sequence(name="OneShot", memory=True)
         sequence.add_children([behaviour, set_flag_on_success])
 
     oneshot_with_guard.add_child(check_not_done)
     if policy == common.OneShotPolicy.ON_SUCCESSFUL_COMPLETION:
         oneshot_with_guard.add_child(sequence)
     else:  # ON_COMPLETION (SUCCESS || FAILURE)
-        oneshot_handler = composites.Selector(name="Oneshot Handler")
-        bookkeeping = composites.Sequence(name="Bookkeeping")
+        oneshot_handler = composites.Selector(name="Oneshot Handler", memory=False)
+        bookkeeping = composites.Sequence(name="Bookkeeping", memory=True)
         set_flag_on_failure = behaviours.SetBlackboardVariable(
             name="Mark Done\n[FAILURE]",
             variable_name=variable_name,
-            variable_value=common.Status.FAILURE
+            variable_value=common.Status.FAILURE,
+            overwrite=True
         )
         bookkeeping.add_children(
             [set_flag_on_failure,

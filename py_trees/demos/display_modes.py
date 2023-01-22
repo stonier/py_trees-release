@@ -8,6 +8,8 @@
 ##############################################################################
 
 """
+Demonstrates usage of the ascii/unicode display modes.
+
 .. argparse::
    :module: py_trees.demos.display_modes
    :func: command_line_argument_parser
@@ -25,8 +27,9 @@
 
 import argparse
 import itertools
-import py_trees
+import typing
 
+import py_trees
 import py_trees.console as console
 
 ##############################################################################
@@ -34,7 +37,7 @@ import py_trees.console as console
 ##############################################################################
 
 
-def description():
+def description() -> str:
     content = "Demonstrates usage of the ascii/unicode display modes.\n"
     content += "\n"
     content += "...\n"
@@ -42,8 +45,7 @@ def description():
 
     if py_trees.console.has_colours:
         banner_line = console.green + "*" * 79 + "\n" + console.reset
-        s = "\n"
-        s += banner_line
+        s = banner_line
         s += console.bold_white + "Display Modes".center(79) + "\n" + console.reset
         s += banner_line
         s += "\n"
@@ -55,14 +57,14 @@ def description():
     return s
 
 
-def epilog():
+def epilog() -> typing.Optional[str]:
     if py_trees.console.has_colours:
         return console.cyan + "And his noodly appendage reached forth to tickle the blessed...\n" + console.reset
     else:
         return None
 
 
-def command_line_argument_parser():
+def command_line_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=description(),
                                      epilog=epilog(),
                                      formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -77,20 +79,21 @@ def create_root() -> py_trees.behaviour.Behaviour:
     Returns:
         the root of the tree
     """
-    root = py_trees.composites.Sequence(name="root")
-    child = py_trees.composites.Sequence(name="child1")
-    child2 = py_trees.composites.Sequence(name="child2")
-    child3 = py_trees.composites.Sequence(name="child3")
+    root = py_trees.composites.Sequence(name="root", memory=True)
+    child = py_trees.composites.Sequence(name="child1", memory=True)
+    child2 = py_trees.composites.Sequence(name="child2", memory=True)
+    child3 = py_trees.composites.Sequence(name="child3", memory=True)
     root.add_child(child)
     root.add_child(child2)
     root.add_child(child3)
-
-    child.add_child(py_trees.behaviours.Count(name='Count', fail_until=0, running_until=1, success_until=6,))
-    child2.add_child(py_trees.behaviours.Count(name='Count', fail_until=0, running_until=1, success_until=6,))
-    child2_child1 = py_trees.composites.Sequence(name="Child2_child1")
-    child2_child1.add_child(py_trees.behaviours.Count(name='Count', fail_until=0, running_until=1, success_until=6,))
+    queue = [py_trees.common.Status.RUNNING]
+    eventually = py_trees.common.Status.SUCCESS
+    child.add_child(py_trees.behaviours.StatusQueue(name="RS", queue=queue, eventually=eventually))
+    child2.add_child(py_trees.behaviours.StatusQueue(name="RS", queue=queue, eventually=eventually))
+    child2_child1 = py_trees.composites.Sequence(name="Child2_child1", memory=True)
+    child2_child1.add_child(py_trees.behaviours.StatusQueue(name="RS", queue=queue, eventually=eventually))
     child2.add_child(child2_child1)
-    child3.add_child(py_trees.behaviours.Count(name='Count', fail_until=0, running_until=1, success_until=6,))
+    child3.add_child(py_trees.behaviours.StatusQueue(name="RS", queue=queue, eventually=eventually))
     return root
 
 
@@ -99,11 +102,9 @@ def create_root() -> py_trees.behaviour.Behaviour:
 ##############################################################################
 
 
-def main():
-    """
-    Entry point for the demo script.
-    """
-    unused_args = command_line_argument_parser().parse_args()
+def main() -> None:
+    """Entry point for the demo script."""
+    _ = command_line_argument_parser().parse_args()  # configuration only, no args to process
     print(description())
     print("-------------------------------------------------------------------------------")
     print("$ py_trees.blackboard.Client(name='Blackboard')")

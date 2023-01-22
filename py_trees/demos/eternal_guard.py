@@ -8,16 +8,16 @@
 ##############################################################################
 
 """
-Demonstrates the 'pick up where you left off idiom'.
+A demonstration of the 'eternal_guard' concept.
 
 .. argparse::
-   :module: py_trees.demos.pick_up_where_you_left_off
+   :module: py_trees.demos.eternal_guard
    :func: command_line_argument_parser
-   :prog: py-trees-demo-pick-up-where-you-left-off
+   :prog: py-trees-demo-eternal-guard
 
-.. graphviz:: dot/pick_up_where_you_left_off.dot
+.. graphviz:: dot/demo-eternal-guard.dot
 
-.. image:: images/pick_up_where_you_left_off.gif
+.. image:: images/eternal_guard.gif
 """
 
 ##############################################################################
@@ -31,6 +31,7 @@ import time
 import typing
 
 import py_trees
+
 import py_trees.console as console
 
 ##############################################################################
@@ -39,21 +40,15 @@ import py_trees.console as console
 
 
 def description(root: py_trees.behaviour.Behaviour) -> str:
-    content = "A demonstration of the 'pick up where you left off' idiom.\n\n"
-    content += "A common behaviour tree pattern that allows you to resume\n"
-    content += "work after being interrupted by a high priority interrupt.\n"
-    content += "\n"
-    content += "EVENTS\n"
-    content += "\n"
-    content += " -  2 : task one done, task two running\n"
-    content += " -  3 : high priority interrupt\n"
-    content += " -  7 : task two restarts\n"
-    content += " -  9 : task two done\n"
+    content = "A demonstration of the 'eternal guard' concept.\n\n"
+    content += "Two binary (F|S) conditional checks will fire every\n"
+    content += "tick, thus providing a fail-fast mechanism for the\n"
+    content += "long running sequence of tasks behind them.\n"
     content += "\n"
     if py_trees.console.has_colours:
         banner_line = console.green + "*" * 79 + "\n" + console.reset
         s = banner_line
-        s += console.bold_white + "Pick Up Where you Left Off".center(79) + "\n" + console.reset
+        s += console.bold_white + "Eternal Guard".center(79) + "\n" + console.reset
         s += banner_line
         s += "\n"
         s += content
@@ -74,25 +69,18 @@ def epilog() -> typing.Optional[str]:
 
 
 def command_line_argument_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description=description(create_root()),
-                                     epilog=epilog(),
-                                     formatter_class=argparse.RawDescriptionHelpFormatter,
-                                     )
+    parser = argparse.ArgumentParser(
+        description=description(create_root()),
+        epilog=epilog(),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-r', '--render', action='store_true', help='render dot tree to file')
     group.add_argument('-i', '--interactive', action='store_true', help='pause and wait for keypress at each tick')
     return parser
 
 
-def pre_tick_handler(
-    behaviour_tree: py_trees.trees.BehaviourTree
-) -> None:
-    """Print a banner immediately before every tick of the tree.
-
-    Args:
-        behaviour_tree (:class:`~py_trees.trees.BehaviourTree`): the tree custodian
-
-    """
+def pre_tick_handler(behaviour_tree: py_trees.trees.BehaviourTree) -> None:
     print("\n--------- Run %s ---------\n" % behaviour_tree.count)
 
 
@@ -100,7 +88,6 @@ def post_tick_handler(
     snapshot_visitor: py_trees.visitors.SnapshotVisitor,
     behaviour_tree: py_trees.trees.BehaviourTree
 ) -> None:
-    """Print an ascii tree with the current snapshot status."""
     print(
         "\n" + py_trees.display.unicode_tree(
             root=behaviour_tree.root,
@@ -108,40 +95,37 @@ def post_tick_handler(
             previously_visited=snapshot_visitor.previously_visited
         )
     )
+    print(py_trees.display.unicode_blackboard())
 
 
 def create_root() -> py_trees.behaviour.Behaviour:
-    task_one = py_trees.behaviours.StatusQueue(
-        name="Task 1",
+    eternal_guard = py_trees.composites.Sequence(name="Eternal Guard", memory=False)
+    condition_one = py_trees.behaviours.StatusQueue(
+        name="Condition 1",
         queue=[
-            py_trees.common.Status.RUNNING,
-            py_trees.common.Status.RUNNING,
+            py_trees.common.Status.SUCCESS,
+            py_trees.common.Status.FAILURE,
+            py_trees.common.Status.SUCCESS,
         ],
         eventually=py_trees.common.Status.SUCCESS
     )
-    task_two = py_trees.behaviours.StatusQueue(
-        name="Task 2",
+    condition_two = py_trees.behaviours.StatusQueue(
+        name="Condition 2",
         queue=[
-            py_trees.common.Status.RUNNING,
-            py_trees.common.Status.RUNNING,
+            py_trees.common.Status.SUCCESS,
+            py_trees.common.Status.SUCCESS,
+            py_trees.common.Status.FAILURE,
         ],
         eventually=py_trees.common.Status.SUCCESS
     )
-    high_priority_interrupt = py_trees.decorators.RunningIsFailure(
-        name="Running is Failure",
-        child=py_trees.behaviours.Periodic(
-            name="High Priority",
-            n=3
-        )
-    )
-    piwylo = py_trees.idioms.pick_up_where_you_left_off(
-        name="Pick Up\nWhere You\nLeft Off",
-        tasks=[task_one, task_two]
-    )
-    root = py_trees.composites.Selector(name="Root", memory=False)
-    root.add_children([high_priority_interrupt, piwylo])
+    task_sequence = py_trees.composites.Sequence(name="Task Sequence", memory=True)
+    task_one = py_trees.behaviours.Success(name="Worker 1")
+    task_two = py_trees.behaviours.Running(name="Worker 2")
 
-    return root
+    eternal_guard.add_children([condition_one, condition_two, task_sequence])
+    task_sequence.add_children([task_one, task_two])
+    return eternal_guard
+
 
 ##############################################################################
 # Main
@@ -151,7 +135,7 @@ def create_root() -> py_trees.behaviour.Behaviour:
 def main() -> None:
     """Entry point for the demo script."""
     args = command_line_argument_parser().parse_args()
-    py_trees.logging.level = py_trees.logging.Level.DEBUG
+    # py_trees.logging.level = py_trees.logging.Level.DEBUG
     root = create_root()
     print(description(root))
 
